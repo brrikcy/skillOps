@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Live data</h1><p class="sub">{{ live_data_name() }}: feeds, the simulation clock and datasets. Join codes and students are on each batch's Live data tab.</p></div>
+  <div class="actions"><a class="btn" href="/status" target="_blank" rel="noopener">Public status</a><a class="btn" href="/docs" target="_blank" rel="noopener">Developer docs</a></div>
+</div>
+{% if error %}<div class="flash bad">{{ error }}</div>{% endif %}
+{% for f in feeds %}
+<div class="card">
+  <div class="card-head"><h2>{{ icon("i-db") }} {{ f.feed }}</h2><span class="badge {% if f.status == 'running' %}teal{% elif f.status == 'paused' %}warn{% endif %}">{{ f.status }}</span>
+    <div class="actions">
+      <form method="post" action="/admin/live/{{ 'resume' if f.status == 'paused' else 'pause' }}" class="inline">{% include "_guard.html" %}<input type="hidden" name="feed" value="{{ f.feed }}">
+        <button class="btn sm" type="submit" data-confirm="{{ 'Resume' if f.status == 'paused' else 'Pause' }} feed {{ f.feed }}?">{{ "Resume" if f.status == "paused" else "Pause" }}</button></form>
+    </div></div>
+  <div class="card-body">
+    <div class="stats" style="margin-bottom:12px">
+      <div class="stat"><div class="label">Current data time</div><div class="value" style="font-size:1.05rem">{{ f.data_time_now or "not started" }}</div></div>
+      <div class="stat"><div class="label">Go-live</div><div class="value" style="font-size:1.05rem">{{ f.go_live_local or f.go_live or "—" }}</div></div>
+      <div class="stat"><div class="label">Speed</div><div class="value" style="font-size:1.05rem">{{ f.speed }}× </div><div class="foot">data hours per real hour</div></div>
+    </div>
+    <div class="table-wrap"><table class="table small">
+      <thead><tr><th>Dataset</th><th>Active</th><th class="num">Rows</th><th class="num">Released now</th><th>Version</th><th></th></tr></thead>
+      <tbody>
+      {% for d in f.datasets %}
+      <tr><td><code>{{ d.dataset }}</code></td><td>{% if d.active %}<span class="badge teal">yes</span>{% else %}<span class="badge grey">no</span>{% endif %}</td>
+        <td class="num">{{ "{:,}".format(d.rows_total or 0) }}</td><td class="num">{{ "{:,}".format(d.rows_released or 0) }}</td><td>{{ d.version }}</td>
+        <td class="right"><form method="post" action="/admin/live/dataset" class="inline">{% include "_guard.html" %}<input type="hidden" name="dataset" value="{{ d.dataset }}"><input type="hidden" name="active" value="{{ '0' if d.active else '1' }}"><button class="btn sm ghost" type="submit">{{ "Turn off" if d.active else "Activate" }}</button></form></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <details style="margin-top:12px"><summary class="small"><strong>Change the clock</strong></summary>
+      <form method="post" action="/admin/live/clock" style="margin-top:10px">{% include "_guard.html" %}<input type="hidden" name="feed" value="{{ f.feed }}">
+        <div class="form-row">
+          <label>Go-live (local time)<input type="datetime-local" name="go_live"></label>
+          <label>Speed<input name="speed" placeholder="{{ f.speed }}"></label>
+        </div>
+        <label class="check"><input type="checkbox" name="from_now" value="1"> Change only the speed, from now (no reset for students)</label>
+        <label class="check"><input type="checkbox" name="force" value="1"> Allow a change that makes students start again</label>
+        <button class="btn" type="submit" data-confirm="Change the clock of {{ f.feed }}?">Save clock</button>
+      </form>
+    </details>
+  </div>
+</div>
+{% else %}
+<div class="card">{{ empty("i-db", "No feed is loaded yet", "Load a .db file from your laptop: python admin.py upload --db file.db --mapping datasets.json --feed name --go-live \"2026-11-16 09:00\"") }}</div>
+{% endfor %}
+{% endblock %}

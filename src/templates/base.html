@@ -1,0 +1,52 @@
+{% from "_ui.html" import icon %}<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · {{ platform_name() }}</title>
+<link rel="stylesheet" href="{{ static('style.css') }}">
+<link rel="icon" href="{{ static('favicon.svg') }}" type="image/svg+xml">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+<header class="topbar">
+  <a class="brand" href="/" aria-label="{{ platform_name() }} home">
+    <img class="brand-robomy" src="{{ static('robomy-logo.png') }}" alt="{{ company() }}">
+    <img class="brand-skillops" src="{{ static('skillops-logo.svg') }}" alt="{{ platform_name() }}">
+  </a>
+  {% if page.logo %}<img class="inst-logo" src="{{ page.logo }}" alt="{{ page.institution.name }} logo">{% endif %}
+  {% if page.institution or page.batch %}
+  <div class="crumbs">
+    {% if page.institution %}<span>{{ page.institution.name }}</span>{% endif %}
+    {% if page.programme %}<span class="sep">/</span><span>{{ page.programme.name }}</span>{% endif %}
+    {% if page.batch %}<span class="sep">/</span><strong>{{ page.batch.name }}</strong>{% endif %}
+    {% if page.project %}<span class="sep">/</span><strong>{{ page.project.name }}</strong>{% endif %}
+  </div>
+  {% endif %}
+  {% if staff %}
+  <div class="top-right">
+    <div class="whoami">
+      <span class="avatar">{{ staff.name[:1]|upper }}</span>
+      <span class="who-text">{{ staff.name }}<span class="role">{{ staff.role_label }}</span></span>
+    </div>
+    <form method="post" action="/signout" class="inline">{% include "_guard.html" %}<button class="btn ghost sm" type="submit" title="Sign out">{{ icon("i-logout") }}<span class="who-text">Sign out</span></button></form>
+  </div>
+  {% endif %}
+</header>
+<div class="shell">
+  {% if nav %}
+  <nav class="side" aria-label="Main">
+    {% for section, items in nav %}
+    {% if section %}<div class="side-label">{{ section }}</div>{% endif %}
+    {% for label, href, ico, on in items %}<a href="{{ href }}" class="{% if on %}on{% endif %}">{{ icon(ico) }}<span>{{ label }}</span></a>{% endfor %}
+    {% endfor %}
+  </nav>
+  {% endif %}
+  <main class="content">
+    {% if local_mode() %}<div class="local-note">Local mode: fake AWS on this laptop. Nothing is kept after the server stops.</div>{% endif %}
+    {% if flash %}<div class="flash {{ flash.kind }}" role="status">{{ flash.message }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{{ static('app.js') }}" defer></script>
+</body>
+</html>

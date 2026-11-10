@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow"><a href="/admin/trainers">Trainers</a></div><h1>{{ t.name }}{% if not t.enabled %} <span class="badge grey">turned off</span>{% endif %}</h1>
+    <p class="sub">{{ t.email }} · signs in at <code>{{ web_address }}</code></p></div>
+</div>
+<div class="grid side-main">
+  <div class="card">
+    <div class="card-head"><h2>{{ icon("i-users") }} Batches</h2></div>
+    <div class="card-body">
+      <form method="post" action="/admin/trainers/{{ t.email|q }}/batches">{% include "_guard.html" %}
+        {% for i in tree %}
+        <fieldset><legend>{{ i.institution.name }}</legend>
+          {% for p in i.programmes %}<div class="small muted" style="margin-top:4px">{{ p.programme.name }}</div>
+            {% for b in p.batches %}<label class="check"><input type="checkbox" name="batch" value="{{ b.id }}" {% if b.id in linked %}checked{% endif %}> {{ b.name }}</label>{% endfor %}
+          {% endfor %}
+        </fieldset>
+        {% else %}<p class="muted">There are no batches yet.</p>{% endfor %}
+        <input type="hidden" name="batch" value="">
+        <button class="btn primary" type="submit">Save batches</button>
+      </form>
+    </div>
+  </div>
+  <div>
+    <div class="card"><div class="card-head"><h2>Name</h2></div><div class="card-body">
+      <form method="post" action="/admin/trainers/{{ t.email|q }}/update">{% include "_guard.html" %}<label>Name<input name="name" value="{{ t.name }}" required maxlength="80"></label><button class="btn" type="submit">Save</button></form></div></div>
+    <div class="card"><div class="card-head"><h2>Account</h2></div><div class="card-body">
+      <div class="btn-row" style="flex-direction:column;align-items:stretch">
+        <form method="post" action="/admin/trainers/{{ t.email|q }}/resend">{% include "_guard.html" %}<button class="btn" type="submit" style="width:100%">Send the invitation again</button></form>
+        <form method="post" action="/admin/trainers/{{ t.email|q }}/reset">{% include "_guard.html" %}<button class="btn" type="submit" style="width:100%" data-confirm="Reset this trainer's password? They need the emailed code to sign in.">{{ icon("i-key", "sm") }}Reset password</button></form>
+        {% if t.enabled %}<form method="post" action="/admin/trainers/{{ t.email|q }}/disable">{% include "_guard.html" %}<button class="btn danger" type="submit" style="width:100%" data-confirm="Turn off {{ t.name }}'s account? They are signed out at once.">Turn off account</button></form>
+        {% else %}<form method="post" action="/admin/trainers/{{ t.email|q }}/enable">{% include "_guard.html" %}<button class="btn primary" type="submit" style="width:100%">Turn account on</button></form>{% endif %}
+      </div>
+      <p class="muted small" style="margin-top:10px">"Send the invitation again" is for someone who has never signed in; "Reset password" for someone who has.</p>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

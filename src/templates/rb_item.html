@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, bar %}
+{% block body_class %}{% if present %}present{% endif %}{% endblock %}
+{% macro pct(nid) %}{% set c = summ.per.get(nid, [0, 0]) %}{% if c[1] %}{{ (100 * c[0] / c[1])|round|int }}%{% endif %}{% endmacro %}
+{% macro name(n) %}{% if n.title.lower().replace(" ", "").startswith(n.short.lower().replace(" ", "")) %}{{ n.title }}{% else %}{{ n.short }} · {{ n.title }}{% endif %}{% endmacro %}
+{% macro leaf(n) %}
+<a class="leaf {% if node and n.id == node.id %}on{% endif %}" href="{{ base }}/i/{{ n.id }}" data-node="{{ n.id }}">
+  {% if n.checkable %}<span class="tick {% if n.id in summ.done_ids %}done{% endif %}"></span>{% endif %}
+  <span class="t-name">{% if n.code %}<strong>{{ n.code }}</strong> {{ n.title[n.code|length:]|trim }}{% else %}{{ n.title }}{% endif %}</span>
+</a>
+{% endmacro %}
+{% block content %}
+{% if not present %}
+<div class="page-head">
+  <div>
+    <div class="eyebrow">{% if bc %}<a href="/b/{{ bc.batch.id }}">{{ bc.batch.name }}</a> › {% endif %}{{ proj.name }}{% if readonly %} · v{{ pub.number }} (read-only view){% endif %}</div>
+    <h1>{{ proj.name }} runbook</h1>
+    {% if not readonly %}<p class="sub">{{ summ.done }} of {{ summ.total }} {{ pub.level_names[pub.checkable-1]|lower }}s complete{% if summ.position %} · furthest: <strong>{{ summ.position }}</strong>{% endif %}</p>{% endif %}
+  </div>
+  <div class="actions">
+    {% if not readonly %}
+    <form method="get" action="{{ base }}/search" class="btn-row"><input type="search" name="q" placeholder="Search this runbook" style="margin:0;width:220px" aria-label="Search this runbook"></form>
+    <a class="btn" href="{{ base }}">{{ icon("i-play") }}Continue where the batch is</a>
+    {% if node and not readonly %}<a class="btn primary" href="{{ base }}/teach/{{ node.parent if node.checkable and node.parent else node.id }}#a-{{ node.id }}">{{ icon("i-book") }}Class view</a>{% endif %}
+    {% endif %}
+    <a class="btn" href="?present=1">{{ icon("i-grid") }}Present</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="rb">
+  <nav class="rb-tree" aria-label="Runbook contents">
+    <div class="rb-tree-head">
+      {% if not readonly %}{{ bar(summ.done, summ.total, teal=True) }}{% endif %}
+      <a class="small" href="{{ base }}/intro">About this runbook</a>
+    </div>
+    {% for r in tree_view.roots %}
+      {% set kids = r.children %}
+      {% if kids %}
+      <details class="lvl1" {% if r.id in tree_view.open %}open{% endif %}>
+        <summary><span class="t-name">{{ name(r) }}</span><span class="t-pct">{{ pct(r.id) }}</span></summary>
+        <a class="leaf {% if node and r.id == node.id %}on{% endif %}" href="{{ base }}/i/{{ r.id }}" style="padding-left:30px"><span class="t-name muted">Overview</span></a>
+        {% for cid in kids %}{% set c = pub.index[cid] %}
+          {% if c.children and not c.checkable %}
+          <details class="lvl2" {% if c.id in tree_view.open %}open{% endif %}>
+            <summary><span class="t-name">{{ name(c) }}</span><span class="t-pct">{{ pct(c.id) }}</span></summary>
+            <a class="leaf {% if node and c.id == node.id %}on{% endif %}" href="{{ base }}/i/{{ c.id }}"><span class="t-name muted">Overview</span></a>
+            {% for gid in c.children %}{{ leaf(pub.index[gid]) }}{% endfor %}
+          </details>
+          {% else %}{{ leaf(c) }}{% endif %}
+        {% endfor %}
+      </details>
+      {% else %}{{ leaf(r) }}{% endif %}
+    {% endfor %}
+  </nav>
+
+  <article class="rb-main">
+    {% if node %}
+    <div class="rb-item-head">
+      <div style="flex:1;min-width:0">
+        <div class="rb-path">{{ path }}</div>
+        <h1>{% if node.label and node.checkable %}<span class="act-badge" style="background:#{{ node.fill or '3b404a' }}">{{ node.label }}</span>{% endif %}{{ node.title }}</h1>
+        {% if tick %}<div class="small muted" style="margin-top:6px">{{ icon("i-check", "sm") }} Marked complete by {{ tick.by_name or tick.by }} · {{ tick.at|when }}</div>{% endif %}
+      </div>
+      {% if present %}<a class="btn exit-present" href="?">Exit present mode</a>{% endif %}
+    </div>
+    {% else %}
+    <div class="rb-item-head"><h1>About this runbook</h1>{% if present %}<a class="btn exit-present" href="?">Exit present mode</a>{% endif %}</div>
+    {% endif %}
+
+    <div class="rb-content">{{ html_body|safe }}</div>
+
+    {% if children %}
+    <h3 style="margin-top:20px">In this {{ pub.level_names[node.level-1]|lower }}</h3>
+    <div class="table-wrap"><table class="table">
+      <tbody>
+      {% for c in children %}{% set cnt = summ.per.get(c.id, [0, 0]) %}
+      <tr><td>{% if c.checkable %}<span class="tick {% if c.id in summ.done_ids %}done{% endif %}" style="display:inline-grid;vertical-align:-3px"></span> {% endif %}<a href="{{ base }}/i/{{ c.id }}">{{ c.title }}</a></td>
+        <td style="width:220px">{% if not c.checkable and not readonly %}{{ bar(cnt[0], cnt[1], teal=True) }}{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% endif %}
+
+    <div class="rb-bottom">
+      {% if prev_n %}<a class="btn" data-prev href="{{ base }}/i/{{ prev_n.id }}{% if present %}?present=1{% endif %}">{{ icon("i-left") }}Previous</a>{% else %}<span></span>{% endif %}
+      {% if node and node.checkable and not readonly %}
+      <div class="btn-row">
+        <span class="save-state" data-save-state aria-live="polite"></span>
+        {% if tick %}
+          {% if can_untick %}
+          <form method="post" action="{{ base }}/i/{{ node.id }}/untick" data-js="tick" data-state="done">{% include "_guard.html" %}<button class="btn tick-btn done" type="submit">{{ icon("i-check") }}Complete — click to un-mark</button></form>
+          {% else %}<span class="btn tick-btn done" aria-disabled="true">{{ icon("i-check") }}Complete</span>{% endif %}
+        {% else %}
+          <form method="post" action="{{ base }}/i/{{ node.id }}/tick" data-js="tick" data-state="open">{% include "_guard.html" %}<button class="btn primary tick-btn" type="submit">{{ icon("i-check") }}Mark complete</button></form>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if next_n %}<a data-next class="btn {% if not (node and node.checkable) or tick %}primary{% endif %}" href="{{ base }}/i/{{ next_n.id }}{% if present %}?present=1{% endif %}">Next{{ icon("i-right") }}</a>{% else %}<span></span>{% endif %}
+    </div>
+
+    {% if node and node.checkable and not readonly and not present %}
+    <details class="rb-note" {% if note and note.text %}open{% endif %}>
+      <summary class="small">{{ icon("i-note", "sm") }} Note for this batch{% if note and note.text %} · by {{ note.by_name }} · {{ note.at|when }}{% endif %}</summary>
+      <form method="post" action="{{ base }}/i/{{ node.id }}/note" style="margin-top:8px">{% include "_guard.html" %}
+        <textarea name="text" rows="2" maxlength="1000" placeholder="For example: repeat 2.9 next time">{{ note.text if note else "" }}</textarea>
+        <button class="btn sm" type="submit" style="margin-top:6px">Save note</button>
+      </form>
+    </details>
+    {% endif %}
+  </article>
+</div>
+{% endblock %}

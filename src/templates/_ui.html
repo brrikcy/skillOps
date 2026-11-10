@@ -1,0 +1,22 @@
+{# Small building blocks used by every page. #}
+{% macro icon(name, cls="") %}<svg class="ico {{ cls }}" aria-hidden="true"><use href="{{ static('icons.svg') }}#{{ name }}"></use></svg>{% endmacro %}
+
+{% macro bar(done, total, teal=False) %}
+{% set p = (100 * done / total)|round|int if total else 0 %}
+<div class="barline"><div class="bar {% if teal %}teal{% endif %}"><span style="width:{{ p }}%"></span></div><span class="pct">{{ p }}%</span></div>
+{% endmacro %}
+
+{% macro empty(ico, title, text="") %}
+<div class="empty">{{ icon(ico) }}<strong>{{ title }}</strong>{% if text %}<span>{{ text }}</span>{% endif %}</div>
+{% endmacro %}
+
+{% macro head(title, sub="", eyebrow="") %}
+<div class="page-head">
+  <div>{% if eyebrow %}<div class="eyebrow">{{ eyebrow }}</div>{% endif %}<h1>{{ title }}</h1>{% if sub %}<p class="sub">{{ sub }}</p>{% endif %}</div>
+  <div class="actions">{{ caller() if caller else "" }}</div>
+</div>
+{% endmacro %}
+
+{% macro archived_toggle(show, base) %}
+{% if show %}<a class="btn sm ghost" href="{{ base }}">Hide archived</a>{% else %}<a class="btn sm ghost" href="{{ base }}?archived=1">Show archived</a>{% endif %}
+{% endmacro %}

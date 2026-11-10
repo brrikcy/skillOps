@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Developer docs - {platform}</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/public.css{static_version}">
+<script src="/public-config.js"></script>
+<script src="/static/public.js{static_version}"></script>
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+<div class="docs">
+<nav class="toc" aria-label="Contents">
+  <strong>Contents</strong>
+  <a href="#what">What is an API?</a>
+  <a href="#before">Before you start</a>
+  <a href="#first-call">Your first API call</a>
+  <a href="#health">GET /v1/health</a>
+  <a href="#register">POST /v1/register</a>
+  <a href="#whoami">GET /v1/whoami</a>
+  <a href="#datasets">GET /v1/datasets</a>
+  <a href="#fetch">GET /v1/fetch</a>
+  <a href="#since">since and until</a>
+  <a href="#pages">Pages (pagination)</a>
+  <a href="#errors">All errors</a>
+  <a href="#tryit">Try it</a>
+</nav>
+
+<article>
+<h1>Developer docs</h1>
+<p class="lead">Everything you need to write your own Python client for <span data-platform></span>.
+  All examples use the <strong>practice feed</strong> (dataset <code data-practice></code>), so you can
+  try them before your project's live data opens.</p>
+
+<h2 id="what">What is an API?</h2>
+<p>An API is a website for programs instead of people. Your Python code sends a <strong>request</strong>
+  to an address (a URL). The server sends back a <strong>response</strong>: a status code and some data in JSON.</p>
+<ul>
+  <li><strong>Method</strong>: what you want to do. <code>GET</code> reads data. <code>POST</code> sends data.</li>
+  <li><strong>URL</strong>: the API address plus a path, for example <code><span data-api></span>/v1/whoami</code>.</li>
+  <li><strong>Headers</strong>: extra information sent with the request. Your API key goes in a header called <code>x-api-key</code>.</li>
+  <li><strong>Parameters</strong>: options added after a <code>?</code> in the URL, for example <code>?dataset=<span data-practice></span></code>.</li>
+  <li><strong>Status code</strong>: <code>200</code> means OK. <code>4xx</code> means something is wrong in your request. <code>5xx</code> means a problem on our side.</li>
+</ul>
+
+<h2 id="before">Before you start</h2>
+<ol>
+  <li>Register on the <a href="/register">Register page</a> with your join code. You get an <strong>API key</strong>.</li>
+  <li>In your project folder, create a file called <code>.env</code> with the two lines from the Register page:
+<pre><code>SIMLAB_API_KEY=rbk_your_key_here
+SIMLAB_API_URL=<span data-api></span></code></pre></li>
+  <li>Add <code>.env</code> to your <code>.gitignore</code> file. Your key must never go to GitHub.</li>
+  <li>Install two packages (Windows Command Prompt):
+<pre><code>pip install requests python-dotenv</code></pre></li>
+</ol>
+<p class="hint">Never write the key itself inside your <code>.py</code> files. Read it from <code>.env</code>.</p>
+
+<h2 id="first-call">Your first API call</h2>
+<p>Ask the server who you are. If this works, your key and URL are right.</p>
+<div class="sample">
+<div class="tabs"><button class="on" data-t="py">Python</button><button data-t="curl">Windows curl</button></div>
+<pre data-t="py"><code>import os
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()                                   # reads .env into environment variables
+API_URL = os.environ["SIMLAB_API_URL"]
+API_KEY = os.environ["SIMLAB_API_KEY"]
+
+response = requests.get(API_URL + "/v1/whoami", headers={"x-api-key": API_KEY}, timeout=30)
+print(response.status_code)                     # 200 means OK
+print(response.json())                          # the data, as a Python dict</code></pre>
+<pre data-t="curl" class="hidden"><code>curl -H "x-api-key: rbk_your_key_here" "<span data-api></span>/v1/whoami"</code></pre>
+</div>
+<p class="hint">In PowerShell, type <code>curl.exe</code> instead of <code>curl</code>.</p>
+<p>A good answer looks like this:</p>
+<pre><code>{
+  "platform": "<span data-platform></span>",
+  "student": {
+    "name": "Asha Rao",
+    "roll_number": "DA24-017",
+    "batch": "DA-2026-A",
+    "status": "active",
+    "message": "You are approved. You can fetch data.",
+    "registered_at": "2026-11-16T04:05:11Z"
+  },
+  "server_time": "2026-11-16T04:06:00Z"
+}</code></pre>
+<p>If <code>status</code> is <code>pending</code>, your trainer has not approved you yet. Ask them, then call
+  <code>/v1/whoami</code> again.</p>
+
+<!-- ============================================================ -->
+<h2 id="health"><span class="endpoint"><span class="method get">GET</span>/v1/health</span></h2>
+<p><strong>Purpose:</strong> check that the API is up. No key needed.</p>
+<p><strong>URL:</strong> <code><span data-api></span>/v1/health</code> &nbsp; <strong>Headers:</strong> none &nbsp; <strong>Parameters:</strong> none</p>
+<div class="sample">
+<div class="tabs"><button class="on" data-t="py">Python</button><button data-t="curl">Windows curl</button></div>
+<pre data-t="py"><code>r = requests.get(API_URL + "/v1/health", timeout=30)
+print(r.json())</code></pre>
+<pre data-t="curl" class="hidden"><code>curl "<span data-api></span>/v1/health"</code></pre>
+</div>
+<pre><code>{"platform": "<span data-platform></span>", "status": "ok", "server_time": "2026-11-16T04:06:00Z"}</code></pre>
+<p><strong>Errors:</strong> none of your own. If this fails, the platform or your internet is down.</p>
+
+<!-- ============================================================ -->
+<h2 id="register"><span class="endpoint"><span class="method post">POST</span>/v1/register</span></h2>
+<p><strong>Purpose:</strong> create your student account and get your API key. The <a href="/register">Register page</a>
+  does this for you; you do not need to call it from code.</p>
+<p><strong>Body (JSON):</strong> <code>join_code</code>, <code>full_name</code>, <code>roll_number</code>.
+  <strong>Headers:</strong> <code>content-type: application/json</code>.</p>
+<div class="sample">
+<div class="tabs"><button class="on" data-t="py">Python</button><button data-t="curl">Windows curl</button></div>
+<pre data-t="py"><code>body = {"join_code": "JOIN-7KQ4-PX", "full_name": "Asha Rao", "roll_number": "DA24-017"}
+r = requests.post(API_URL + "/v1/register", json=body, timeout=30)
+print(r.status_code, r.json())</code></pre>
+<pre data-t="curl" class="hidden"><code>curl -X POST -H "content-type: application/json" -d "{\"join_code\":\"JOIN-7KQ4-PX\",\"full_name\":\"Asha Rao\",\"roll_number\":\"DA24-017\"}" "<span data-api></span>/v1/register"</code></pre>
+</div>
+<pre><code>{
+  "platform": "<span data-platform></span>",
+  "message": "You are registered.",
+  "student": {"name": "Asha Rao", "roll_number": "DA24-017", "batch": "DA-2026-A", "status": "active", "...": "..."},
+  "api_key": "rbk_3f1c...",
+  "api_url": "<span data-api></span>",
+  "env_lines": "SIMLAB_API_KEY=rbk_3f1c...\nSIMLAB_API_URL=<span data-api></span>",
+  "warning": "This API key is shown only once. Copy it into your .env file now."
+}</code></pre>
+<table>
+  <tr><th>Status</th><th>Code</th><th>What it means</th><th>What to do</th></tr>
+  <tr><td>201</td><td>(none)</td><td>Registered. The key is in <code>api_key</code>.</td><td>Copy it into <code>.env</code> now.</td></tr>
+  <tr><td>400</td><td><code>join_code_invalid</code></td><td>This join code is not valid or has closed.</td><td>Check the code with your trainer.</td></tr>
+  <tr><td>400</td><td><code>missing_field</code></td><td>Name or roll number is missing.</td><td>Fill in every field.</td></tr>
+  <tr><td>400</td><td><code>bad_json</code></td><td>The body is not valid JSON.</td><td>Use <code>json=body</code> in requests.</td></tr>
+  <tr><td>409</td><td><code>roll_number_taken</code></td><td>The roll number is registered under another name.</td><td>Check your roll number; ask your trainer.</td></tr>
+  <tr><td>429</td><td><code>rate_limited</code></td><td>Too many tries from your network.</td><td>Wait <code>retry_after_seconds</code>.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="whoami"><span class="endpoint"><span class="method get">GET</span>/v1/whoami</span></h2>
+<p><strong>Purpose:</strong> your name, roll number, batch and status. The first call you make.
+  It also works while you wait for approval.</p>
+<p><strong>Headers:</strong> <code>x-api-key</code>. &nbsp; <strong>Parameters:</strong> none. Example: see <a href="#first-call">Your first API call</a>.</p>
+<table>
+  <tr><th>Status</th><th>Code</th><th>What it means</th><th>What to do</th></tr>
+  <tr><td>200</td><td>(none)</td><td>OK. Read <code>student.status</code>.</td><td>If it says pending, ask your trainer to approve you.</td></tr>
+  <tr><td>401</td><td><code>missing_key</code></td><td>No <code>x-api-key</code> header was sent.</td><td>Add <code>headers={"x-api-key": API_KEY}</code>.</td></tr>
+  <tr><td>401</td><td><code>invalid_key</code></td><td>The key is wrong or was replaced.</td><td>Check <code>.env</code>. If you registered again, use the newest key.</td></tr>
+  <tr><td>403</td><td><code>disabled</code></td><td>Your access is turned off.</td><td>Speak to your trainer.</td></tr>
+  <tr><td>429</td><td><code>rate_limited</code></td><td>More than the allowed requests per minute.</td><td>Wait <code>retry_after_seconds</code>, then try again.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="datasets"><span class="endpoint"><span class="method get">GET</span>/v1/datasets</span></h2>
+<p><strong>Purpose:</strong> the datasets you can fetch now: their columns, key column, the current data time
+  and how many rows are released so far. Nothing about future rows.</p>
+<p><strong>Headers:</strong> <code>x-api-key</code>. &nbsp; <strong>Parameters:</strong> none.</p>
+<div class="sample">
+<div class="tabs"><button class="on" data-t="py">Python</button><button data-t="curl">Windows curl</button></div>
+<pre data-t="py"><code>r = requests.get(API_URL + "/v1/datasets", headers={"x-api-key": API_KEY}, timeout=30)
+for d in r.json()["datasets"]:
+    print(d["dataset"], d["rows_released"], d["current_data_time"])</code></pre>
+<pre data-t="curl" class="hidden"><code>curl -H "x-api-key: rbk_your_key_here" "<span data-api></span>/v1/datasets"</code></pre>
+</div>
+<pre><code>{
+  "platform": "<span data-platform></span>",
+  "datasets": [
+    {
+      "dataset": "<span data-practice></span>",
+      "feed": "practice",
+      "columns": ["order_id", "order_time", "customer", "city", "amount", "quantity"],
+      "key_column": "order_id",
+      "dataset_version": 1,
+      "feed_status": "running",
+      "current_data_time": "2025-07-01 00:12:40",
+      "rows_released": 77
+    }
+  ]
+}</code></pre>
+<p class="hint">The practice columns above are an example. Always read the real columns from this endpoint.</p>
+<p><code>key_column</code> is only a label. Two rows can have the same key. That may be a deliberate data problem for you to find.</p>
+<table>
+  <tr><th>Status</th><th>Code</th><th>What it means</th><th>What to do</th></tr>
+  <tr><td>401</td><td><code>missing_key</code> / <code>invalid_key</code></td><td>Key problem.</td><td>See <a href="#whoami">/v1/whoami</a>.</td></tr>
+  <tr><td>403</td><td><code>pending_approval</code></td><td>Your trainer has not approved you yet.</td><td>Ask your trainer.</td></tr>
+  <tr><td>403</td><td><code>disabled</code></td><td>Your access is turned off.</td><td>Speak to your trainer.</td></tr>
+  <tr><td>429</td><td><code>rate_limited</code></td><td>Too many requests.</td><td>Wait <code>retry_after_seconds</code>.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="fetch"><span class="endpoint"><span class="method get">GET</span>/v1/fetch</span></h2>
+<p><strong>Purpose:</strong> get the rows that were released <em>after</em> <code>since</code> and up to now.</p>
+<p><strong>Headers:</strong> <code>x-api-key</code>.</p>
+<table>
+  <tr><th>Parameter</th><th>Required</th><th>Meaning</th></tr>
+  <tr><td><code>dataset</code></td><td>yes</td><td>The dataset name, for example <code data-practice></code>.</td></tr>
+  <tr><td><code>since</code></td><td>no</td><td>A UTC time like <code>2026-11-16T03:30:00Z</code>. Use the <code>until</code> of your last successful fetch. Empty = from the beginning.</td></tr>
+  <tr><td><code>page_token</code></td><td>no</td><td>Only to get the next page: copy <code>next_page_token</code> from the last response. Send it with the same <code>dataset</code>.</td></tr>
+  <tr><td><code>page_size</code></td><td>no</td><td>Rows per page, 1 to 5000. Default 5000.</td></tr>
+</table>
+<div class="sample">
+<div class="tabs"><button class="on" data-t="py">Python</button><button data-t="curl">Windows curl</button></div>
+<pre data-t="py"><code>params = {"dataset": "<span data-practice></span>", "since": ""}          # "" = from the beginning
+r = requests.get(API_URL + "/v1/fetch", headers={"x-api-key": API_KEY}, params=params, timeout=60)
+data = r.json()
+print(data["row_count"], "rows. Next time use since =", data["until"])</code></pre>
+<pre data-t="curl" class="hidden"><code>curl -H "x-api-key: rbk_your_key_here" "<span data-api></span>/v1/fetch?dataset=<span data-practice></span>&amp;since="</code></pre>
+</div>
+<pre><code>{
+  "platform": "<span data-platform></span>",
+  "dataset": "<span data-practice></span>",
+  "dataset_version": 1,
+  "since": null,
+  "until": "2026-11-16T05:30:12Z",
+  "data_time_until": "2025-07-01 00:12:40",
+  "columns": ["order_id", "order_time", "customer", "city", "amount", "quantity"],
+  "rows": [
+    [5001, "2025-07-01 00:00:00", "C417", "Pune", 1299.5, 2],
+    [5002, "2025-07-01 00:00:10", "C102", "", 450.0, null],
+    [5003, "2025-07-01 00:00:20", "C871", " Mumbai", "812.4", -1]
+  ],
+  "row_count": 3,
+  "next_page_token": null
+}</code></pre>
+<ul>
+  <li><code>rows</code> are lists, in the same order as <code>columns</code>. They are exactly the values in the source data.</li>
+  <li><code>null</code> means SQL NULL. <code>""</code> is an empty text. They are different. Numbers stored as text stay text.
+    The data has deliberate defects. Finding them is your job.</li>
+  <li><code>until</code> is the real UTC time this fetch covers up to. Save it. It is your next <code>since</code>.</li>
+  <li><code>data_time_until</code> is the simulated business time (India time) at <code>until</code>.</li>
+</ul>
+<table>
+  <tr><th>Status</th><th>Code</th><th>What it means</th><th>What to do</th></tr>
+  <tr><td>400</td><td><code>missing_dataset</code></td><td>No <code>dataset</code> parameter.</td><td>Add <code>dataset=...</code>. The error lists the names.</td></tr>
+  <tr><td>400</td><td><code>unknown_dataset</code></td><td>No dataset with that name.</td><td>Check spelling. The error's <code>available</code> lists the names.</td></tr>
+  <tr><td>400</td><td><code>bad_since</code></td><td>since must be a UTC time like 2026-11-16T03:30:00Z.</td><td>Use the <code>until</code> you saved, exactly. Use <code>Z</code>, not <code>+00:00</code>.</td></tr>
+  <tr><td>400</td><td><code>bad_page_token</code></td><td>The page token was changed or belongs to another dataset.</td><td>Copy <code>next_page_token</code> exactly.</td></tr>
+  <tr><td>400</td><td><code>bad_page_size</code></td><td><code>page_size</code> is not 1 to 5000.</td><td>Leave it out, or fix it.</td></tr>
+  <tr><td>401</td><td><code>missing_key</code> / <code>invalid_key</code></td><td>Key problem.</td><td>See <a href="#whoami">/v1/whoami</a>.</td></tr>
+  <tr><td>403</td><td><code>pending_approval</code></td><td>Not approved yet.</td><td>Ask your trainer.</td></tr>
+  <tr><td>403</td><td><code>disabled</code></td><td>Your access is turned off.</td><td>Speak to your trainer.</td></tr>
+  <tr><td>403</td><td><code>dataset_inactive</code></td><td>The dataset exists but is not open yet.</td><td>Wait for your trainer, or use the practice feed.</td></tr>
+  <tr><td>409</td><td><code>dataset_replaced</code></td><td>The data was replaced or reset after your last fetch.</td><td>Delete the rows you loaded from this dataset, then fetch again with an empty <code>since</code>.</td></tr>
+  <tr><td>429</td><td><code>rate_limited</code></td><td>Too many requests per minute.</td><td>Wait <code>retry_after_seconds</code>, then try again.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="since">since and until</h2>
+<p>The platform releases rows over time. Each row has a hidden release moment. A fetch returns the rows
+  released <strong>after <code>since</code></strong> and <strong>up to and including <code>until</code></strong>.
+  The server sets <code>until</code> to the time of your request.</p>
+<pre><code>fetch 1: since = ""                     until = 10:00:00  -> rows released up to 10:00:00
+fetch 2: since = 10:00:00 (fetch 1's until)  until = 10:05:00  -> rows released after 10:00:00, up to 10:05:00
+fetch 3: since = 10:05:00 (fetch 2's until)  until = 10:12:30  -> ...</code></pre>
+<p>Follow this rule and you will never miss a row and never get a row twice:</p>
+<ol>
+  <li>Read the <code>until</code> of your last <em>successful</em> load from your own database.</li>
+  <li>Fetch with that value as <code>since</code> (empty the very first time).</li>
+  <li>Store the rows <strong>and</strong> the new <code>until</code> together, in one transaction.</li>
+  <li>If anything fails, store nothing. Next time you will ask again from the same <code>since</code>.</li>
+</ol>
+<p>All times in <code>since</code> and <code>until</code> are real UTC times, ending in <code>Z</code>.
+  India time is UTC + 5:30.</p>
+
+<h2 id="pages">Pages (pagination)</h2>
+<p>One response has at most 5000 rows. If more rows are waiting, <code>next_page_token</code> is not null.
+  Ask again with <code>page_token</code> (and the same <code>dataset</code>) until <code>next_page_token</code> is null.
+  Every page of one fetch has the same <code>until</code>. Save the <code>until</code> only after the last page.</p>
+<pre><code>all_rows = []
+params = {"dataset": "<span data-practice></span>", "since": since}
+while True:
+    r = requests.get(API_URL + "/v1/fetch", headers={"x-api-key": API_KEY}, params=params, timeout=60)
+    r.raise_for_status()
+    data = r.json()
+    all_rows.extend(data["rows"])
+    if data["next_page_token"] is None:
+        break
+    params = {"dataset": "<span data-practice></span>", "page_token": data["next_page_token"]}
+new_since = data["until"]          # save this with the rows</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="errors">All errors</h2>
+<p>Every error has the same shape. Read <code>error.code</code> in your code and show <code>message</code> and <code>hint</code> to the user.</p>
+<pre><code>{
+  "platform": "<span data-platform></span>",
+  "error": {
+    "code": "invalid_key",
+    "message": "This API key is not valid.",
+    "hint": "Check SIMLAB_API_KEY in your .env file. If you registered again, use the newest key."
+  }
+}</code></pre>
+<table>
+  <tr><th>Status</th><th>Code</th><th>Meaning</th></tr>
+  <tr><td>400</td><td><code>bad_since</code></td><td>since is not a UTC time like 2026-11-16T03:30:00Z, or is in the future.</td></tr>
+  <tr><td>400</td><td><code>missing_dataset</code>, <code>unknown_dataset</code></td><td>Dataset missing or wrong. <code>available</code> lists the names.</td></tr>
+  <tr><td>400</td><td><code>bad_page_token</code>, <code>bad_page_size</code></td><td>Paging parameter is wrong.</td></tr>
+  <tr><td>400</td><td><code>join_code_invalid</code>, <code>missing_field</code>, <code>bad_json</code></td><td>Registration problems.</td></tr>
+  <tr><td>401</td><td><code>missing_key</code>, <code>invalid_key</code></td><td>No key, or a wrong / old key.</td></tr>
+  <tr><td>403</td><td><code>pending_approval</code>, <code>disabled</code>, <code>dataset_inactive</code></td><td>Not allowed right now.</td></tr>
+  <tr><td>404</td><td><code>not_found</code></td><td>No endpoint at that path. Check the URL.</td></tr>
+  <tr><td>405</td><td><code>method_not_allowed</code></td><td>Wrong method (GET vs POST).</td></tr>
+  <tr><td>409</td><td><code>dataset_replaced</code>, <code>roll_number_taken</code></td><td>Start again from an empty since / check your roll number.</td></tr>
+  <tr><td>429</td><td><code>rate_limited</code></td><td>Slow down. <code>error.retry_after_seconds</code> says how long to wait.</td></tr>
+  <tr><td>500</td><td><code>server_error</code></td><td>Our problem. Try again in a minute; tell your trainer if it continues.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="tryit">Try it</h2>
+<div class="card tryit">
+  <p class="hint">Your key stays only in this page while it is open. It is not saved anywhere.</p>
+  <div class="row">
+    <div><label for="t-key">Your API key</label><input type="password" id="t-key" autocomplete="off" placeholder="rbk_..."></div>
+    <div><label for="t-ep">Endpoint</label>
+      <select id="t-ep">
+        <option value="/v1/whoami">GET /v1/whoami</option>
+        <option value="/v1/datasets">GET /v1/datasets</option>
+        <option value="/v1/fetch">GET /v1/fetch</option>
+        <option value="/v1/health">GET /v1/health</option>
+      </select></div>
+  </div>
+  <div class="row" id="t-fetch">
+    <div><label for="t-ds">dataset</label><input type="text" id="t-ds"></div>
+    <div><label for="t-since">since</label><input type="text" id="t-since" placeholder="empty = from the beginning"></div>
+    <div><label for="t-size">page_size</label><input type="number" id="t-size" min="1" max="5000" placeholder="5000"></div>
+  </div>
+  <div class="row" id="t-tok"><div><label for="t-page">page_token</label><input type="text" id="t-page" placeholder="only for the next page"></div></div>
+  <p><button class="btn" id="t-send" type="button">Send request</button>
+     <button class="btn ghost hidden" id="t-next" type="button">Get next page</button>
+     <button class="btn ghost hidden" id="t-cont" type="button">Fetch again from until</button></p>
+  <div class="hint mono" id="t-url"></div>
+  <pre><code id="t-out">The response will appear here.</code></pre>
+</div>
+</article>
+</div>
+</main>
+<div id="site-footer"></div>
+
+<script src="/static/page-docs.js{static_version}"></script>
+</body>
+</html>

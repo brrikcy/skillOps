@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -60 440 186" role="img" aria-label="SkillOps">
+  <!-- SkillOps word mark in the style of the Robomy logo: heavy geometric letters with a thin white
+       inline, and a ringed "O". Red instead of teal. Capitals only S and O.
+       Above it, the skill-building mark: three rising steps and a growth arrow that sweeps up from
+       the word, the way the paper plane flies over a travel logo. -->
+  <defs>
+    <linearGradient id="rise" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff8a8c" stop-opacity="0"/>
+      <stop offset=".35" stop-color="#ff7376"/>
+      <stop offset="1" stop-color="#e5383b"/>
+    </linearGradient>
+    <clipPath id="k-arms"><rect x="70" y="36" width="62" height="64"/></clipPath>
+    <g id="letters" fill="none" stroke-linejoin="miter" stroke-linecap="butt">
+      <path d="M 50.9 29.4 A 22 18 0 1 0 31 55 A 22 18 0 1 1 11.1 80.6"/>
+      <path d="M 79 10 V 100"/>
+      <g clip-path="url(#k-arms)">
+        <path d="M 82 78 L 124 30"/>
+        <path d="M 96 62 L 128 104"/>
+      </g>
+      <path d="M 139 36 V 100"/>
+      <path d="M 165 10 V 100"/>
+      <path d="M 191 10 V 100"/>
+      <path d="M 317 36 V 126"/>
+      <path d="M 317 68 A 22 23 0 1 1 317 68.01"/>
+      <path d="M 419.4 51.6 A 17 11.5 0 1 0 404 68 A 17 11.5 0 1 1 388.6 84.4"/>
+    </g>
+  </defs>
+
+  <!-- skill-building mark: rising steps + growth arrow -->
+  <rect x="322" y="-10" width="19" height="14" rx="3" fill="#ff8a8c"/>
+  <rect x="346" y="-24" width="19" height="28" rx="3" fill="#f25f62"/>
+  <rect x="370" y="-38" width="19" height="42" rx="3" fill="#e5383b"/>
+  <path d="M 150 0 C 236 0, 318 -12, 392 -42 L 398 -30 C 326 -2, 240 10, 150 0 Z" fill="url(#rise)"/>
+  <path d="M 378 -48 L 436 -56 L 410 -6 Z" fill="#e5383b"/>
+  <path d="M 384 -47 L 428 -53 L 409 -16 Z" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="miter"/>
+
+  <!-- the word -->
+  <use href="#letters" stroke="#e5383b" stroke-width="18"/>
+  <use href="#letters" stroke="#ffffff" stroke-width="2.6"/>
+  <circle cx="139" cy="19" r="9" fill="#e5383b"/>
+  <circle cx="139" cy="19" r="3.2" fill="#ffffff"/>
+  <circle cx="255" cy="55" r="45" fill="#e5383b"/>
+  <circle cx="255" cy="55" r="35.5" fill="none" stroke="#ffffff" stroke-width="2.6"/>
+  <circle cx="255" cy="55" r="27" fill="#ffffff"/>
+  <circle cx="255" cy="55" r="27" fill="#e5383b" opacity=".55"/>
+  <circle cx="255" cy="55" r="20" fill="none" stroke="#ffffff" stroke-width="2.6" opacity=".9"/>
+  <circle cx="255" cy="55" r="14" fill="#ffffff"/>
+  <circle cx="255" cy="55" r="14" fill="#e5383b" opacity=".3"/>
+  <circle cx="255" cy="55" r="7" fill="#ffffff"/>
+</svg>

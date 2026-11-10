@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty, archived_toggle %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Batches</h1><p class="sub">Every class, by institution and programme. To add a batch, open its programme.</p></div>
+  <div class="actions">{{ archived_toggle(show_archived, "/admin/batches") }}</div>
+</div>
+{% for i in tree %}
+<div class="card flush">
+  <div class="card-head"><h2>{{ icon("i-building") }} {{ i.institution.name }}</h2></div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Batch</th><th>Programme</th><th>Trainers</th><th>MCQ name</th><th></th></tr></thead>
+    <tbody>
+    {% for p in i.programmes %}{% for b in p.batches %}
+    <tr><td><a href="/b/{{ b.id }}"><strong>{{ b.name }}</strong></a>{% if b.archived %} <span class="badge grey">archived</span>{% endif %}</td>
+      <td class="small"><a href="/admin/programmes/{{ p.programme.id }}">{{ p.programme.name }}</a></td>
+      <td class="small">{% for t in b.trainers %}{{ t.name }}{% if not loop.last %}, {% endif %}{% else %}<span class="muted">none</span>{% endfor %}</td>
+      <td>{% if b.mcq_batch %}<code>{{ b.mcq_batch }}</code>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right nowrap"><a class="btn sm" href="/admin/batches/{{ b.id }}">{{ icon("i-settings", "sm") }}Settings</a></td></tr>
+    {% endfor %}{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% else %}
+<div class="card">{{ empty("i-users", "No batches yet", "Open an institution's programme to add batches.") }}</div>
+{% endfor %}
+{% endblock %}

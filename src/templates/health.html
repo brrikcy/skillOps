@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Health</h1><p class="sub">Checked {{ checked_at|when }} · version {{ version }}</p></div>
+  <div class="actions"><a class="btn" href="/health">{{ icon("i-refresh") }}Check again</a></div>
+</div>
+<div class="flash {% if ok %}ok{% else %}bad{% endif %}">{% if ok %}Every part is working.{% else %}Some parts are not working. The rest of the app still works.{% endif %}</div>
+<div class="card flush">
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th></th><th>Part</th><th>Detail</th><th class="num">Time</th></tr></thead>
+    <tbody>
+    {% for r in results %}
+    <tr class="{% if not r.ok %}row-bad{% endif %}"><td style="width:30px"><span class="dot {% if r.ok %}on{% else %}off{% endif %}"></span></td>
+      <td><strong>{{ r.name }}</strong></td><td class="small">{{ r.detail }}</td><td class="num small">{{ r.ms }} ms</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+<p class="muted small">Request ID <code>{{ request_id }}</code></p>
+{% endblock %}

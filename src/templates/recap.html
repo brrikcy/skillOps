@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+{% include "_batch_tabs.html" %}
+<div class="page-head" style="margin-bottom:12px">
+  <div><h2 style="font-size:1.2rem">Class recap</h2><p class="sub small">What this batch covered on a day, ready to send to students or the institution.</p></div>
+  <form method="get" action="/b/{{ page.batch.id }}/recap" class="actions btn-row"><input type="date" name="date" value="{{ day }}" style="margin:0;width:auto" aria-label="Day"><button class="btn sm" type="submit">Show</button></form>
+</div>
+{% if groups %}
+<div class="grid side-main">
+  <div>
+    {% for g in groups %}
+    <div class="card flush">
+      <div class="card-head"><h2>{{ g.project.name }}</h2><span class="badge teal">{{ g.covered|length }} covered</span><span class="muted small">by {{ g.trainers|join(", ") }}</span></div>
+      <div class="table-wrap"><table class="table">
+        <tbody>
+        {% for n, t in g.covered %}<tr><td style="width:36px">{% if n.label %}<span class="act-badge" style="background:#{{ n.fill or '3b404a' }}">{{ n.label }}</span>{% endif %}</td><td>{{ n.title }}</td><td class="muted small nowrap">{{ t.at|when }}</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+      {% if g.next %}<div class="card-body small" style="border-top:1px solid var(--line)">Next class starts with: <strong>{{ g.next.title }}</strong></div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>{{ icon("i-copy") }} Message</h2><div class="actions"><button class="btn sm primary" type="button" data-copy data-copy-text="{{ text }}">Copy</button></div></div>
+    <div class="card-body"><div class="recap-text">{{ text }}</div>
+      <p class="muted small" style="margin-top:10px">Paste it into the class WhatsApp group or an email to the institution.</p></div>
+  </div>
+</div>
+{% else %}
+<div class="card">{{ empty("i-clock", "Nothing was marked done on this day", "Choose another day, or mark items done in the class view as you teach.") }}</div>
+{% endif %}
+{% endblock %}

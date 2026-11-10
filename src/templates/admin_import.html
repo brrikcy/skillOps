@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Import from CSV</h1><p class="sub">The first set-up in one file: institutions, programmes, projects, batches and trainers. Nothing changes until you check it and press Apply. The same file twice changes nothing.</p></div>
+  <div class="actions"><a class="btn" href="/admin/import/template.csv">{{ icon("i-download") }}Template</a></div>
+</div>
+<div class="grid side-main">
+  <div class="card">
+    <div class="card-head"><h2>{{ icon("i-upload") }} Your file</h2></div>
+    <div class="card-body">
+      <form method="post" action="/admin/import/check" enctype="multipart/form-data">{% include "_guard.html" %}
+        <label>CSV file<input type="file" name="file" accept=".csv,text/csv"></label>
+        <label>…or paste the rows<textarea name="text" rows="8" placeholder="institution,institution_code,programme,project,batch,mcq_batch,trainer_name,trainer_email"></textarea></label>
+        <button class="btn primary" type="submit">Check the file</button>
+      </form>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Columns</h2></div>
+    <div class="card-body small">
+      <p>{% for c in columns %}<code>{{ c }}</code>{% if not loop.last %} {% endif %}{% endfor %}</p>
+      <ul>
+        <li>One row can make an institution, programme, project, batch and trainer, and link the trainer to the batch.</li>
+        <li>Projects are added in the order of the rows.</li>
+        <li>New trainers get a temporary password by email.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

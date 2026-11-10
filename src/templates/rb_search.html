@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow"><a href="/b/{{ bc.batch.id }}">{{ bc.batch.name }}</a> › <a href="{{ base }}">{{ proj.name }}</a></div><h1>Search the runbook</h1></div>
+</div>
+<form method="get" action="{{ base }}/search" class="form-row card" style="padding:14px 18px">
+  <label>Words to find<input type="search" name="q" value="{{ words }}" autofocus maxlength="80"></label>
+  <button class="btn primary" type="submit">{{ icon("i-search") }}Search</button>
+</form>
+{% if words %}
+<div class="card flush">
+  <div class="card-head"><h2>{{ results|length }} result(s){% if results|length >= 60 %} (first 60){% endif %}</h2></div>
+  {% for r in results %}
+  <a href="{{ base }}/i/{{ r.node.id }}" style="display:block;padding:12px 18px;border-bottom:1px solid var(--line);color:inherit">
+    <div class="small muted">{{ r.path }}</div>
+    <div><strong>{{ r.node.title }}</strong></div>
+    <div class="small">…{{ r.before }}<mark>{{ r.hit }}</mark>{{ r.after }}…</div>
+  </a>
+  {% else %}
+  {{ empty("i-search", "Nothing found", "Try fewer or different words.") }}
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

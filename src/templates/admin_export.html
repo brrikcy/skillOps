@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Export everything</h1><p class="sub">One .zip with every institution, programme, project, batch, trainer, link, tick, note, live-data student and audit line — as CSV for Excel and JSON for a full restore.</p></div>
+  <div class="actions"><form method="post" action="/admin/export">{% include "_guard.html" %}<button class="btn primary" type="submit">{{ icon("i-download") }}Start a new export</button></form></div>
+</div>
+<div class="card flush">
+  <div class="card-head"><h2>Exports</h2><span class="muted small">Refresh to see progress. Files are kept 30 days.</span><a class="actions btn sm" href="/admin/export">{{ icon("i-refresh", "sm") }}Refresh</a></div>
+  {% if items %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Started</th><th>By</th><th>Status</th><th>Message</th><th></th></tr></thead>
+    <tbody>
+    {% for j in items %}
+    <tr><td class="nowrap">{{ j.created_at|when }}</td><td class="small">{{ j.who }}</td>
+      <td><span class="badge {% if j.status == 'done' %}teal{% elif j.status == 'failed' %}red{% else %}warn{% endif %}">{{ j.status }}</span></td>
+      <td class="small">{{ j.message }}</td>
+      <td class="right">{% if j.status == "done" %}<a class="btn sm" href="/admin/export/{{ j.id }}/download">{{ icon("i-download", "sm") }}Download</a>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}{{ empty("i-download", "No exports yet") }}{% endif %}
+</div>
+<p class="muted small">To restore: <code>python admin.py restore --file skillops-export.zip</code> (see the Admin guide).</p>
+{% endblock %}

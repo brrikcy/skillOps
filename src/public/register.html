@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register - {platform}</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/public.css{static_version}">
+<script src="/public-config.js"></script>
+<script src="/static/public.js{static_version}"></script>
+</head>
+<body>
+<div id="site-header"></div>
+<main class="narrow">
+  <h1>Register</h1>
+  <p>Use the <strong>join code</strong> your trainer shows in class. You register once. After that you use your
+    <strong>API key</strong> in your own code.</p>
+
+  <form id="form" class="card" autocomplete="off">
+    <label for="code">Join code</label>
+    <input type="text" id="code" placeholder="JOIN-7KQ4-PX" required maxlength="20" style="text-transform:uppercase">
+    <label for="name">Full name</label>
+    <input type="text" id="name" required maxlength="80">
+    <label for="roll">Roll number</label>
+    <input type="text" id="roll" required maxlength="40">
+    <p class="hint">Lost your key or got a new laptop? Register again with the same roll number and name.
+      You get a new key, your old key stops working, and your history is kept.</p>
+    <div id="err" class="msg bad hidden"></div>
+    <button class="btn" type="submit" id="go">Register</button>
+  </form>
+
+  <div id="done" class="hidden">
+    <div class="msg good" id="welcome"></div>
+    <div class="card">
+      <h3>Your API key</h3>
+      <div class="msg warn"><strong>This key is shown only once.</strong> Copy it now. Do not share it.
+        If you lose it, register again.</div>
+      <div class="keybox mono" id="key"></div>
+      <p><button class="btn small" id="copyKey" type="button">Copy key</button></p>
+
+      <h3>Paste these two lines into your <code>.env</code> file</h3>
+      <pre><code id="env"></code></pre>
+      <p><button class="btn small" id="copyEnv" type="button">Copy both lines</button></p>
+      <p class="hint">Create the file <code>.env</code> in your project folder yourself, paste the lines, and save.
+        Then add a line <code>.env</code> to your <code>.gitignore</code> so the key never goes to GitHub.</p>
+      <div id="pending" class="msg warn hidden">Your trainer must approve you before you can fetch data.
+        Until then, <code>/v1/whoami</code> works and tells you your status.</div>
+    </div>
+    <p><a class="btn" href="/docs#first-call">Next: open the Developer docs</a></p>
+  </div>
+</main>
+<div id="site-footer"></div>
+
+<script src="/static/page-register.js{static_version}"></script>
+</body>
+</html>

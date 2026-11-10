@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{platform} - live data for your project</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/public.css{static_version}">
+<script src="/public-config.js"></script>
+<script src="/static/public.js{static_version}"></script>
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+  <section class="hero">
+    <h1><span data-platform></span>: practise with <span class="hl">live business data</span></h1>
+    <p class="lead"><span data-platform></span> gives your project a database that grows while the business runs.
+      It releases realistic business data a little at a time, as if it were happening now.
+      You fetch the new rows through an API, load them into your own database, and watch your dashboard change.</p>
+    <p>
+      <a class="btn" href="/register">Register with a join code</a>
+      <a class="btn ghost" href="/docs">Read the Developer docs</a>
+    </p>
+  </section>
+
+  <div class="grid">
+    <div class="card">
+      <h3>1. Register once</h3>
+      <p>Your trainer shows a <strong>join code</strong> in class. Enter it with your name and roll number.
+        You get your personal <strong>API key</strong>. Keep it secret.</p>
+    </div>
+    <div class="card">
+      <h3>2. Put the key in .env</h3>
+      <p>Paste the two lines you are given into the <code>.env</code> file of your project,
+        and add <code>.env</code> to <code>.gitignore</code>.</p>
+    </div>
+    <div class="card">
+      <h3>3. Write your own client</h3>
+      <p>Follow the Developer docs. Start with <code>/v1/whoami</code>, then practise on the practice feed,
+        then fetch your project's live data.</p>
+    </div>
+    <div class="card">
+      <h3>4. Load live data</h3>
+      <p>Add a <em>Load live data</em> button to your Streamlit dashboard: fetch new rows, store them,
+        run your SQL cleaning, redraw your charts.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>For staff</h3>
+    <p>Trainers and the supervisor sign in to create join codes, approve students and follow fetch activity.</p>
+    <a class="btn ghost" href="/signin">Staff sign-in</a>
+    <a class="btn ghost" href="/status">Platform status</a>
+  </div>
+</main>
+<div id="site-footer"></div>
+
+<script src="/static/page-home.js{static_version}"></script>
+</body>
+</html>

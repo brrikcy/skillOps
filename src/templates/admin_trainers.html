@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head"><div><h1>Trainers</h1><p class="sub">Accounts, and the batches each trainer teaches.</p></div></div>
+<div class="grid side-main">
+  <div class="card flush">
+    {% if items %}
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Trainer</th><th>Batches</th><th>Account</th></tr></thead>
+      <tbody>
+      {% for t in items %}
+      <tr><td><a href="/admin/trainers/{{ t.email|q }}"><strong>{{ t.name }}</strong></a><div class="muted small">{{ t.email }}</div></td>
+        <td class="small">{% for n in t.batch_names %}<span class="badge">{{ n }}</span> {% else %}<span class="muted">none</span>{% endfor %}</td>
+        <td>{% if t.enabled %}<span class="badge teal">on</span>{% else %}<span class="badge grey">turned off</span>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}{{ empty("i-user", "No trainers yet") }}{% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Add a trainer</h2></div>
+    <div class="card-body">
+      <form method="post" action="/admin/trainers">{% include "_guard.html" %}
+        <label>Name<input name="name" required maxlength="80"></label>
+        <label>Email<input type="email" name="email" required maxlength="120"></label>
+        <button class="btn primary" type="submit">{{ icon("i-plus") }}Add trainer</button>
+      </form>
+      <p class="muted small" style="margin-top:10px">Cognito emails a temporary password. Send them this address: <code>{{ web_address }}</code></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

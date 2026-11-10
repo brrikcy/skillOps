@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="card" style="max-width:720px;margin:20px auto">
+  <div class="card-head"><h2>{{ icon("i-clock") }} Finish saving</h2></div>
+  <div class="card-body">
+    <p>Your sign-in ended while you were saving this. <strong>Nothing was saved yet.</strong> Check it and press <strong>Save it now</strong>.</p>
+    <table class="table small">
+      <tr><th>Page</th><td><code>{{ item.path }}</code></td></tr>
+      {% for k, v in shown.items() %}<tr><th>{{ k }}</th><td>{{ v }}</td></tr>{% endfor %}
+    </table>
+    <form method="post" action="{{ item.path }}" class="btn-row" style="margin-top:14px">
+      {% for k, v in item.form.items() %}{% if k != "csrf" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" class="btn primary">Save it now</button>
+      <a class="btn ghost" href="{{ next }}">Do not save</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+{% include "_batch_tabs.html" %}
+<div class="card flush">
+  <div class="card-head"><h2>Results · {{ tid }}</h2><div class="actions"><a class="btn sm" href="/b/{{ page.batch.id }}/mcq">Back</a>{% if not problem %}<a class="btn sm" href="?format=csv">{{ icon("i-download", "sm") }}CSV</a>{% endif %}</div></div>
+  {% if problem %}<div class="card-body"><div class="flash bad">{{ problem }}</div></div>
+  {% elif rows %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Student</th><th class="num">Score</th><th class="num">%</th><th class="num">Correct</th><th class="num">Wrong</th><th class="num">Warnings</th><th>Type</th></tr></thead>
+    <tbody>{% for r in rows|sort(attribute="name") %}<tr class="{% if r.earlier %}row-warn{% endif %}"><td>{{ r.name }}<div class="muted small">{{ r.email }}</div></td><td class="num">{{ r.score }} / {{ r.max }}</td><td class="num">{{ r.percentage }}</td><td class="num">{{ r.correct }}</td><td class="num">{{ r.wrong }}</td><td class="num">{{ r.warnings }}</td><td class="small">{{ r.type }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}{{ empty("i-test", "No results yet for this batch") }}{% endif %}
+</div>
+{% endblock %}

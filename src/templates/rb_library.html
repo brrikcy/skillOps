@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Runbooks</h1><p class="sub">Robomy's shared library. One runbook can be used by programmes at any institution.</p></div>
+</div>
+<div class="grid side-main">
+  <div class="card flush">
+    <div class="card-head"><h2>Library</h2><span class="badge">{{ items|length }}</span></div>
+    {% if items %}
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Runbook</th><th>Published</th><th>Newest upload</th><th>Used by</th></tr></thead>
+      <tbody>
+      {% for r in items %}
+      <tr>
+        <td><a href="/admin/runbooks/{{ r.id }}"><strong>{{ r.name }}</strong></a></td>
+        <td>{% if r.latest_v %}<span class="badge teal">v{{ r.latest_v.number }}</span> <span class="muted small">{{ r.latest_v.counts.get(r.latest_v.checkable|string, 0) }} items</span>{% else %}<span class="badge grey">not yet</span>{% endif %}</td>
+        <td>{% if r.newest %}v{{ r.newest.number }} · <span class="muted small">{{ r.newest.status }}</span>{% else %}<span class="muted">no file yet</span>{% endif %}</td>
+        <td class="small">{% for u in r.used_by %}<div>{{ u.programme.name }} › <strong>{{ u.project.name }}</strong></div>{% else %}<span class="muted small">no project</span>{% endfor %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+    {{ empty("i-book", "No runbooks yet", "Add the first one on the right, then upload its Word file.") }}
+    {% endif %}
+  </div>
+  <div>
+    <div class="card">
+      <div class="card-head"><h2>Add a runbook</h2></div>
+      <div class="card-body">
+        <form method="post" action="/admin/runbooks">
+          {% include "_guard.html" %}
+          <label>Name<input name="name" required maxlength="100" placeholder="for example Airtel"></label>
+          <button class="btn primary" type="submit">{{ icon("i-plus") }}Add runbook</button>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Mapping templates</h2></div>
+      <div class="card-body">
+        {% for t in templates %}<div class="small">{{ icon("i-file", "sm") }} {{ t.name }} <span class="muted">· {{ t.updated_at|when }}</span></div>
+        {% else %}<p class="muted small">None yet. Save one on the mapping screen; the next runbook with the same structure maps in one click.</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

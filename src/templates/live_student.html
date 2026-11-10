@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "_ui.html" import empty %}
+{% block content %}
+{% include "_batch_tabs.html" %}
+<div class="card flush">
+  <div class="card-head"><h2>{{ s.name }} <span class="muted small">· roll {{ s.roll_display or s.roll }} · {{ s.status }}</span></h2><a class="actions small" href="/b/{{ page.batch.id }}/live">Back to students</a></div>
+  {% if log %}
+  <div class="table-wrap"><table class="table small">
+    <thead><tr><th>Time</th><th>Dataset</th><th>since</th><th>until</th><th class="num">Rows</th><th class="num">Page</th><th>Status</th><th>Error</th></tr></thead>
+    <tbody>{% for l in log %}<tr class="{% if l.status != 200 %}row-warn{% endif %}"><td class="nowrap">{{ l.at|when }}</td><td><code>{{ l.dataset }}</code></td><td class="mono">{{ l.since or "" }}</td><td class="mono">{{ l.until or "" }}</td><td class="num">{{ l.rows }}</td><td class="num">{{ l.page }}</td><td>{{ l.status }}</td><td class="muted">{{ l.error or "" }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}{{ empty("i-db", "No fetches yet") }}{% endif %}
+</div>
+{% endblock %}

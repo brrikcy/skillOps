@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, bar, empty %}
+{% block content %}
+{% set b = d.bc.batch %}{% set cur = d.current %}
+<div class="page-head">
+  <div><div class="eyebrow"><a href="/dashboard">Dashboard</a></div><h1>{{ b.name }} · progress</h1>
+    <p class="sub">{{ d.bc.programme.name }} · trainers: {% for t in d.trainers %}{{ t.name }}{% if not loop.last %}, {% endif %}{% else %}none{% endfor %}</p></div>
+  <div class="actions">
+    <a class="btn" href="/b/{{ b.id }}">Open batch</a>
+    <a class="btn" href="/dashboard/b/{{ b.id }}?format=csv">{{ icon("i-download") }}CSV</a>
+  </div>
+</div>
+
+<div class="card flush">
+  <div class="card-head"><h2>Projects of the programme</h2></div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>#</th><th>Project</th><th style="min-width:200px">Completion</th><th>Position</th><th></th></tr></thead>
+    <tbody>
+    {% for p in d.projects %}
+    <tr {% if p is sameas cur %}style="background:var(--red-tint)"{% endif %}>
+      <td>{{ loop.index }}</td><td><strong>{{ p.project.name }}</strong>{% if p is sameas cur %} <span class="badge red">current</span>{% endif %}</td>
+      <td>{% if p.s %}{{ bar(p.s.done, p.s.total, teal=(p.s.done >= p.s.total)) }}{% else %}<span class="muted small">no runbook</span>{% endif %}</td>
+      <td class="small">{{ p.s.position if p.s and p.s.position else "—" }}</td>
+      <td class="right">{% if p.s %}<a class="btn sm" href="/b/{{ b.id }}/p/{{ p.project.id }}">Runbook view</a>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+
+<div class="grid two">
+  <div class="card flush">
+    <div class="card-head"><h2>{% if cur %}{{ cur.project.name }}: {{ cur.s.pub.level_names[0]|lower }}s and {{ cur.s.pub.level_names[1]|lower if cur.s.pub.level_names|length > 1 else "" }}s{% else %}Current project{% endif %}</h2></div>
+    {% if cur and cur.s %}
+    <div class="table-wrap"><table class="table">
+      <tbody>
+      {% for x in d.parts %}
+      <tr><td style="{% if x.node.level > 1 %}padding-left:30px{% endif %}">{% if x.node.level == 1 %}<strong>{{ x.node.short }}</strong> · {{ x.node.title }}{% else %}{{ x.node.short }} · {{ x.node.title }}{% endif %}</td>
+        <td style="width:190px">{{ bar(x.done, x.total, teal=(x.done >= x.total and x.total)) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}{{ empty("i-book", "No runbook in use yet") }}{% endif %}
+  </div>
+  <div>
+    <div class="card flush">
+      <div class="card-head"><h2>Recent ticks</h2></div>
+      {% if d.events %}
+      <div class="table-wrap"><table class="table small">
+        <tbody>
+        {% for e in d.events %}
+        <tr><td class="nowrap">{{ e.at|when }}</td><td>{% if e.action == "tick" %}<span class="badge teal">ticked</span>{% else %}<span class="badge grey">un-marked</span>{% endif %}</td>
+          <td>{{ d.event_titles.get(e.sk, e.item_id) }}</td><td class="muted">{{ e.by_name }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}{{ empty("i-check", "No ticks yet") }}{% endif %}
+    </div>
+    <div class="card flush">
+      <div class="card-head"><h2>Open items before the furthest tick</h2><span class="badge">{{ d.skipped|length }}</span></div>
+      {% if d.skipped %}
+      <div class="card-body small">{% for x in d.skipped[:60] %}<div><a href="/b/{{ b.id }}/p/{{ cur.project.id }}/i/{{ x.node.id }}">{{ x.path }}</a> · {{ x.node.title }}</div>{% endfor %}{% if d.skipped|length > 60 %}<div class="muted">… and {{ d.skipped|length - 60 }} more</div>{% endif %}</div>
+      {% else %}<div class="card-body muted small">None: no gaps before the furthest ticked item.</div>{% endif %}
+    </div>
+    <div class="card flush">
+      <div class="card-head"><h2>Needs a repeat</h2>{% set reps = d.projects|selectattr("s")|map(attribute="s")|map(attribute="repeats")|sum(start=[]) %}{% if reps %}<span class="badge warn">{{ reps|length }}</span>{% endif %}</div>
+      <div class="card-body small">{% for p in d.projects if p.s %}{% for n in p.s.repeats %}<div><a href="/b/{{ b.id }}/p/{{ p.project.id }}/teach/{{ n.parent or n.id }}#a-{{ n.id }}">{{ n.title }}</a> <span class="muted">· {{ p.project.name }}</span></div>{% endfor %}{% endfor %}
+        {% if not reps %}<span class="muted">Nothing flagged.</span>{% endif %}</div>
+    </div>
+    <div class="card flush">
+      <div class="card-head"><h2>Trainer notes</h2></div>
+      {% if d.notes %}
+      <div class="card-body">{% for n in d.notes %}<div style="margin-bottom:10px"><div class="small muted">{{ n.project.name }} · {{ n.path }} · {{ n.note.by_name }} · {{ n.note.at|when }}</div><div>{{ n.note.text }}</div></div>{% endfor %}</div>
+      {% else %}<div class="card-body muted small">No notes yet.</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

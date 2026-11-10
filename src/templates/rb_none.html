@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% from "_ui.html" import empty %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow"><a href="/b/{{ bc.batch.id }}">{{ bc.batch.name }}</a></div><h1>{{ proj.name }}</h1></div></div>
+<div class="card">{{ empty("i-book", "No runbook is published for this project yet", "Your supervisor chooses the runbook on the programme page. Then this page opens it.") }}</div>
+{% endblock %}

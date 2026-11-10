@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, bar, empty %}
+{% block content %}
+<div class="page-head"><div><h1>My batches</h1><p class="sub">Pick up where each batch stopped.</p></div></div>
+{% if not count %}
+<div class="card">{{ empty("i-users", "No batch is linked to your account yet", "Ask your supervisor to link you to your batches, then refresh this page.") }}</div>
+{% endif %}
+<div class="tiles">
+{% for r in rows %}{% set cur = r.current %}{% set s = cur.s if cur else none %}
+  <a class="tile" href="/b/{{ r.batch.id }}">
+    <div class="small muted">{{ r.institution.name }} · {{ r.programme.name }}</div>
+    <div class="tile-title" style="font-size:1.1rem">{{ icon("i-users") }}{{ r.batch.name }}</div>
+    {% if s %}
+      <div class="small">{{ cur.project.name }}{% if s.position %} · <strong>{{ s.position }}</strong>{% else %} · not started{% endif %}</div>
+      {{ bar(s.done, s.total, teal=True) }}
+    {% else %}<div class="small muted">No runbook in use yet</div>{% endif %}
+    <div class="small muted">{% if r.live_known %}{{ r.live.registered }} on live data{% endif %}{% if r.mcq_known and r.mcq and r.mcq.open %} · open test: {{ r.mcq.open[0].id }}{% endif %}</div>
+  </a>
+{% endfor %}
+</div>
+{% endblock %}

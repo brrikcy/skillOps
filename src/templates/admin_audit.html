@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Audit log</h1><p class="sub">Every change and every sign-in: who, role, action, batch, target, result. Newest first, India time.</p></div>
+  <div class="actions"><a class="btn" href="/admin/audit?{{ query }}{% if query %}&amp;{% endif %}format=csv">{{ icon("i-download") }}CSV</a></div>
+</div>
+<form method="get" action="/admin/audit" class="card" style="padding:12px 16px">
+  <div class="form-row">
+    <label>From<input type="date" name="start_date" value="{{ f.start_date }}"></label>
+    <label>To<input type="date" name="end_date" value="{{ f.end_date }}"></label>
+    <label>Who<input name="who" value="{{ f.who }}" placeholder="email"></label>
+    <label>Action<input name="action" value="{{ f.action }}" placeholder="for example tick"></label>
+    <label>Batch id<input name="batch" value="{{ f.batch }}" placeholder="b-…"></label>
+    <label>Result<select name="result">{% for r in ["", "ok", "refused", "not done", "failed", "error"] %}<option value="{{ r }}" {% if f.result == r %}selected{% endif %}>{{ r or "any" }}</option>{% endfor %}</select></label>
+    <button class="btn" type="submit">{{ icon("i-search", "sm") }}Show</button>
+  </div>
+</form>
+<div class="card flush">
+  {% if items %}
+  <div class="table-wrap"><table class="table small">
+    <thead><tr><th>Time</th><th>Who</th><th>Action</th><th>Batch</th><th>Target</th><th>Result</th><th>Detail</th></tr></thead>
+    <tbody>
+    {% for i in items %}
+    <tr class="{% if i.result in ('refused', 'error', 'failed') %}row-bad{% elif i.result != 'ok' %}row-warn{% endif %}">
+      <td class="nowrap">{{ i.at|when }}</td><td>{{ i.who }}<div class="muted">{{ i.role }}</div></td><td>{{ i.action }}</td>
+      <td class="mono">{{ i.batch }}</td><td>{{ i.target }}</td>
+      <td><span class="badge {% if i.result == 'ok' %}teal{% elif i.result in ('refused', 'error', 'failed') %}red{% else %}warn{% endif %}">{{ i.result }}</span></td>
+      <td class="muted">{{ i.detail }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}{{ empty("i-list", "Nothing found for these filters") }}{% endif %}
+</div>
+<p class="muted small">Showing up to 300 lines; the CSV has up to 5,000.</p>
+{% endblock %}

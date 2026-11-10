@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div><h1>MCQ tests</h1><p class="sub">Each institution can connect its own MCQ Test System (Google Sheet + Apps Script). Trainers then use it from each batch's MCQ tab.</p></div>
+</div>
+<details class="card" style="padding:14px 18px"><summary><strong>One-time set-up for an institution</strong></summary>
+  <ol class="small" style="margin-top:10px">
+    <li>Open the institution's MCQ Google Sheet → Extensions → Apps Script. Add a new script file named <code>Api</code> and paste <code>appsscript/Api.gs</code> from the SkillOps folder. Save.</li>
+    <li>Choose the function <code>setupApi</code> and press Run. Open the execution log and copy the secret (shown once).</li>
+    <li>Deploy → Manage deployments → edit → Version: New version → Deploy. Copy the Web app URL (ends in <code>/exec</code>).</li>
+    <li>Paste the URL and the secret below, Save, then press Test connection.</li>
+    <li>On each batch's settings, set its MCQ batch name (the Batch column of the Students sheet).</li>
+  </ol>
+</details>
+{% for r in rows %}
+<div class="card">
+  <div class="card-head"><h2>{{ icon("i-building") }} {{ r.inst.name }}</h2>
+    {% if r.settings.last_ok %}<span class="badge teal">connected · tested {{ r.settings.last_ok|when }}</span>{% elif r.settings.url %}<span class="badge warn">not tested</span>{% else %}<span class="badge grey">not connected</span>{% endif %}</div>
+  <div class="card-body">
+    <form method="post" action="/admin/mcq/{{ r.inst.id }}">{% include "_guard.html" %}
+      <div class="form-row">
+        <label style="flex:2">Web app URL<input name="url" value="{{ r.settings.url or '' }}" placeholder="https://script.google.com/macros/s/.../exec"></label>
+        <label>Secret {% if r.settings.has_secret %}<span class="hint">saved; leave empty to keep it</span>{% endif %}<input type="password" name="secret" autocomplete="off" placeholder="{{ '••••••••' if r.settings.has_secret else 'from setupApi' }}"></label>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+    <div class="btn-row">
+      <form method="post" action="/admin/mcq/{{ r.inst.id }}/test" class="inline">{% include "_guard.html" %}<button class="btn" type="submit" {% if not r.settings.url %}disabled{% endif %}>{{ icon("i-pulse", "sm") }}Test connection</button></form>
+      <form method="post" action="/admin/mcq/{{ r.inst.id }}/regrade" class="inline btn-row">{% include "_guard.html" %}<input name="test_id" placeholder="Test ID" maxlength="30" style="width:120px;margin:0" aria-label="Test ID to re-mark"><button class="btn ghost" type="submit" data-confirm="Re-mark every attempt of this test (after fixing an answer)?">Re-mark a test</button></form>
+    </div>
+    <p class="small muted" style="margin-top:12px">Batches: {% for b in r.batches %}<a href="/admin/batches/{{ b.id }}">{{ b.name }}</a> → {% if b.mcq_batch %}<code>{{ b.mcq_batch }}</code>{% else %}<span class="badge warn">no MCQ name</span>{% endif %}{% if not loop.last %} · {% endif %}{% else %}none yet{% endfor %}</p>
+  </div>
+</div>
+{% else %}
+<div class="card">{{ empty("i-building", "Add an institution first") }}</div>
+{% endfor %}
+{% endblock %}

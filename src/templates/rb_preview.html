@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% macro node_line(n) %}
+<span class="badge {% if n.level == v.checkable %}teal{% endif %}">{{ names[n.level-1] }}</span>
+<a href="?node={{ n.id }}#edit">{% if n.label %}<span class="act-badge" style="background:#{{ n.fill or '555' }}">{{ n.label }}</span>{% endif %}{{ n.title }}</a>
+{% endmacro %}
+{% macro branch(n) %}
+{% set ch = kids.get(n.id, []) %}
+{% if ch and n.level < v.checkable %}
+<details {% if sel and (sel.id == n.id or sel.parent == n.id) %}open{% endif %}><summary>{{ node_line(n) }} <span class="cnt">· {{ ch|length }}</span></summary>
+{% for c in ch %}{{ branch(c) }}{% endfor %}
+</details>
+{% else %}
+<div style="margin-left:16px;padding:2px 0">{{ node_line(n) }}{% if ch %} <span class="cnt">· {{ ch|length }} {{ names[n.level]|lower }}</span>{% endif %}</div>
+{% endif %}
+{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow"><a href="/admin/runbooks">Runbooks</a> › <a href="/admin/runbooks/{{ rb.id }}">{{ rb.name }}</a> › v{{ v.number }}</div>
+    <h1>Preview the tree</h1><p class="sub">Check the items before publishing. Open an item to rename it, merge it into the one before, or move its start.</p></div>
+  <div class="actions">
+    <a class="btn" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/map">Back to mapping</a>
+    <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/publish" class="inline">{% include "_guard.html" %}<button class="btn primary" type="submit">{{ icon("i-check") }}Publish v{{ v.number }}</button></form>
+  </div>
+</div>
+<div class="stats">
+  {% for lvl in range(1, 5) %}{% if counts.get(lvl) %}
+  <div class="stat"><div class="label">Level {{ lvl }} · {{ names[lvl-1] }}{% if lvl == v.checkable %} <span class="badge teal">ticked</span>{% endif %}</div><div class="value">{{ counts[lvl] }}</div></div>
+  {% endif %}{% endfor %}
+</div>
+<div class="grid side-main">
+  <div class="card"><div class="card-head"><h2>Tree</h2>{% if v.overrides and (v.overrides.levels or v.overrides.titles) %}<form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/reset-edits" class="actions">{% include "_guard.html" %}<button class="btn sm ghost" type="submit" data-confirm="Undo every rename, merge and move?">Undo all edits</button></form>{% endif %}</div>
+    <div class="card-body tree-preview">{% for n in roots %}{{ branch(n) }}{% endfor %}</div></div>
+  <div>
+    <div class="card" id="edit">
+      <div class="card-head"><h2>Edit an item</h2></div>
+      <div class="card-body">
+      {% if sel %}
+        <p><strong>{{ sel.title }}</strong><br><span class="muted small">{{ names[sel.level-1] }} · starts at block {{ sel.start }}</span></p>
+        <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/edit">{% include "_guard.html" %}
+          <input type="hidden" name="node" value="{{ sel.id }}"><input type="hidden" name="action" value="rename">
+          <label>New name<input name="value" value="{{ sel.title }}" maxlength="200"></label>
+          <button class="btn sm" type="submit">Rename</button></form>
+        <hr>
+        <div class="btn-row">
+          <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/edit" class="inline">{% include "_guard.html" %}<input type="hidden" name="node" value="{{ sel.id }}"><input type="hidden" name="action" value="merge"><button class="btn sm" type="submit" data-confirm="Merge this item into the one before it?">Merge into previous</button></form>
+          <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/edit" class="inline">{% include "_guard.html" %}<input type="hidden" name="node" value="{{ sel.id }}"><input type="hidden" name="action" value="earlier"><button class="btn sm" type="submit">Start one block earlier</button></form>
+          <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/edit" class="inline">{% include "_guard.html" %}<input type="hidden" name="node" value="{{ sel.id }}"><input type="hidden" name="action" value="later"><button class="btn sm" type="submit">Start one block later</button></form>
+        </div>
+        <p class="muted small" style="margin-top:12px">Blocks around the start:</p>
+        <div class="small">{% for b in sel_blocks %}<div style="padding:3px 6px;border-radius:4px;{% if b.is_start %}background:var(--red-soft){% endif %}"><span class="muted mono">{{ b.i }}</span> {{ (b.text or "")[:90] }}</div>{% endfor %}</div>
+      {% else %}
+        <p class="muted small">Click an item in the tree to change it.</p>
+      {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

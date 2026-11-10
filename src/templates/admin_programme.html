@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty, archived_toggle %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow"><a href="/admin/institutions/{{ inst.id }}">{{ inst.name }}</a></div>
+    <h1>{{ prog.name }}{% if prog.archived %} <span class="badge grey">archived</span>{% endif %}</h1>
+    <p class="sub">Projects in teaching order. Each project uses one runbook from the library.</p></div>
+  <div class="actions">{{ archived_toggle(show_archived, "/admin/programmes/" ~ prog.id) }}</div>
+</div>
+
+<div class="card flush">
+  <div class="card-head"><h2>{{ icon("i-steps") }} Projects</h2></div>
+  {% if projects %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>#</th><th>Project</th><th>Runbook</th><th>Order</th><th></th></tr></thead>
+    <tbody>
+    {% for j in projects %}
+    <tr>
+      <td class="muted">{{ loop.index }}</td>
+      <td><form method="post" action="/admin/programmes/{{ prog.id }}/projects/{{ j.id }}/rename" class="btn-row">{% include "_guard.html" %}<input name="name" value="{{ j.name }}" maxlength="80" style="width:170px;margin:0" aria-label="Name of {{ j.name }}"><button class="btn sm ghost" type="submit">Save</button></form></td>
+      <td><form method="post" action="/admin/programmes/{{ prog.id }}/projects/{{ j.id }}/runbook" class="btn-row">{% include "_guard.html" %}
+        <select name="runbook_id" style="width:200px;margin:0" aria-label="Runbook for {{ j.name }}"><option value="">— none —</option>{% for r in runbooks %}<option value="{{ r.id }}" {% if j.runbook_id == r.id %}selected{% endif %}>{{ r.name }} (v{{ r.latest_number }})</option>{% endfor %}</select>
+        <button class="btn sm" type="submit">Use</button></form>
+        {% if j.runbook_id and j.runbook_id not in runbooks|map(attribute="id")|list %}<div class="small muted">{{ rb_names.get(j.runbook_id, j.runbook_id) }} (not published)</div>{% endif %}</td>
+      <td class="nowrap">
+        <form method="post" action="/admin/programmes/{{ prog.id }}/projects/{{ j.id }}/move" class="inline">{% include "_guard.html" %}<button class="btn sm ghost" name="direction" value="up" {% if loop.first %}disabled{% endif %} aria-label="Move {{ j.name }} up">↑</button></form>
+        <form method="post" action="/admin/programmes/{{ prog.id }}/projects/{{ j.id }}/move" class="inline">{% include "_guard.html" %}<button class="btn sm ghost" name="direction" value="down" {% if loop.last %}disabled{% endif %} aria-label="Move {{ j.name }} down">↓</button></form>
+      </td>
+      <td class="right"><form method="post" action="/admin/programmes/{{ prog.id }}/projects/{{ j.id }}/archive" class="inline">{% include "_guard.html" %}<button class="linklike small" type="submit" data-confirm="Take {{ j.name }} out of this programme? Its ticks are kept.">Remove</button></form></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}{{ empty("i-steps", "No projects yet", "Add them in teaching order.") }}{% endif %}
+  <div class="card-body" style="border-top:1px solid var(--line)">
+    <form method="post" action="/admin/programmes/{{ prog.id }}/projects" class="form-row">{% include "_guard.html" %}
+      <label>New project (added at the end)<input name="name" required maxlength="80" placeholder="for example Airtel"></label>
+      <button class="btn primary" type="submit">{{ icon("i-plus") }}Add project</button>
+    </form>
+    {% if not runbooks %}<p class="muted small">No runbook is published yet. <a href="/admin/runbooks">Upload one in Runbooks</a>, then choose it here.</p>{% endif %}
+  </div>
+</div>
+
+<div class="card flush">
+  <div class="card-head"><h2>{{ icon("i-users") }} Batches</h2></div>
+  {% if batches %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Batch</th><th>Trainers</th><th>MCQ batch name</th><th></th></tr></thead>
+    <tbody>
+    {% for b in batches %}
+    <tr><td><a href="/admin/batches/{{ b.id }}"><strong>{{ b.name }}</strong></a>{% if b.archived %} <span class="badge grey">archived</span>{% endif %}</td>
+      <td class="small">{% for t in b.trainers %}{{ t.name }}{% if not loop.last %}, {% endif %}{% else %}<span class="muted">none</span>{% endfor %}</td>
+      <td>{% if b.mcq_batch %}<code>{{ b.mcq_batch }}</code>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right"><a class="btn sm" href="/b/{{ b.id }}">Open</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}{{ empty("i-users", "No batches yet") }}{% endif %}
+  <div class="card-body" style="border-top:1px solid var(--line)">
+    <form method="post" action="/admin/programmes/{{ prog.id }}/batches" class="form-row">{% include "_guard.html" %}
+      <label>New batch<input name="name" required maxlength="60" placeholder="for example Batch A"></label>
+      <label>MCQ batch name<input name="mcq_batch" maxlength="40" placeholder="Batch column in the Students sheet"></label>
+      <button class="btn primary" type="submit">{{ icon("i-plus") }}Add batch</button>
+    </form>
+  </div>
+</div>
+
+<div class="grid two">
+  <div class="card"><div class="card-head"><h2>Details</h2></div><div class="card-body">
+    <form method="post" action="/admin/programmes/{{ prog.id }}/update" class="form-row">{% include "_guard.html" %}
+      <label>Programme name<input name="name" value="{{ prog.name }}" required maxlength="120"></label><button class="btn" type="submit">Save</button></form></div></div>
+  <div class="card"><div class="card-head"><h2>Archive</h2></div><div class="card-body">
+    {% if prog.archived %}<form method="post" action="/admin/programmes/{{ prog.id }}/unarchive">{% include "_guard.html" %}<button class="btn" type="submit">Make active again</button></form>
+    {% else %}<p class="muted small">Hides this programme and its batches from trainers. All history is kept.</p>
+    <form method="post" action="/admin/programmes/{{ prog.id }}/archive">{% include "_guard.html" %}<button class="btn danger" type="submit" data-confirm="Archive {{ prog.name }}?">{{ icon("i-archive") }}Archive</button></form>{% endif %}
+  </div></div>
+</div>
+{% endblock %}

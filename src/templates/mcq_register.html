@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+{% include "_batch_tabs.html" %}
+<div class="card flush">
+  <div class="card-head"><h2>Marks register</h2><div class="actions"><a class="btn sm" href="/b/{{ page.batch.id }}/mcq">Back</a>{% if not problem %}<a class="btn sm" href="?format=csv">{{ icon("i-download", "sm") }}CSV</a>{% endif %}</div></div>
+  {% if problem %}<div class="card-body"><div class="flash bad">{{ problem }}</div></div>
+  {% elif data.rows %}
+  <div class="table-wrap"><table class="table small">
+    <thead><tr>{% for h in data.header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in data.rows %}<tr>{% for c in r %}<td class="{% if c == 'ABSENT' %}muted{% endif %}">{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}{{ empty("i-list", "No marks yet") }}{% endif %}
+</div>
+{% endblock %}

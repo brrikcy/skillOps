@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="card" style="max-width:640px;margin:30px auto">
+  <div class="card-body" style="padding:28px">
+    <div class="eyebrow" style="color:var(--red-strong)">{{ "Not allowed" if code == 403 else ("Not found" if code == 404 else "Something needs attention") }}</div>
+    <h1 style="margin:4px 0 8px">{{ message }}</h1>
+    {% if next_step %}<p>{{ next_step }}</p>{% endif %}
+    <div class="btn-row" style="margin-top:16px"><a class="btn primary" href="{{ back }}">{{ icon("i-left") }}Go back</a><a class="btn" href="/">Home</a></div>
+    <p class="muted small" style="margin-top:18px">Request ID: <code>{{ request_id }}</code></p>
+  </div>
+</div>
+{% endblock %}

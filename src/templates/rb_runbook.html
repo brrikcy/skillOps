@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow"><a href="/admin/runbooks">Runbooks</a></div><h1>{{ rb.name }}</h1>
+    <p class="sub">{% if used_by %}Used by: {% for u in used_by %}{{ u.programme.name }} › {{ u.project.name }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}Not used by any project yet. Choose it on a programme's page.{% endif %}</p></div>
+  {% if busy %}<div class="actions"><a class="btn" href="/admin/runbooks/{{ rb.id }}">{{ icon("i-refresh") }}Refresh</a></div>{% endif %}
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>{{ icon("i-upload") }} Upload {% if versions %}a new version{% else %}the Word file{% endif %}</h2></div>
+  <div class="card-body">
+    <form method="post" action="{{ upload.action }}" enctype="multipart/form-data" class="form-row" {% if upload.direct %}data-plain{% endif %}>
+      {% if upload.direct %}{% for k, v in upload.fields.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      {% else %}{% include "_guard.html" %}{% endif %}
+      <label>Runbook (.docx, up to 40 MB)<input type="file" name="file" accept=".docx" required></label>
+      <button class="btn primary" type="submit">Upload</button>
+    </form>
+    <p class="muted small">The file is read in the background. Its structure is found from the document itself; you confirm it on the next screen. Batches stay on their version until you move them.</p>
+  </div>
+</div>
+
+<div class="card flush">
+  <div class="card-head"><h2>Versions</h2></div>
+  {% if versions %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Version</th><th>File</th><th>Status</th><th class="num">Items</th><th>Matching</th><th></th></tr></thead>
+    <tbody>
+    {% for v in versions %}
+    <tr>
+      <td><strong>v{{ v.number }}</strong>{% if v.id == rb.latest %} <span class="badge teal">current</span>{% endif %}<div class="muted small">{{ v.uploaded_at|when }}</div></td>
+      <td class="small">{{ v.filename }}<div class="muted">{{ (v.size / 1048576)|round(1) }} MB</div></td>
+      <td><span class="badge {% if v.status == 'published' %}teal{% elif v.status == 'failed' %}red{% elif v.status == 'mapping' %}warn{% endif %}">{{ v.status_text }}</span>
+        <div class="muted small">{{ v.message }}</div></td>
+      <td class="num">{{ v.counts.get(v.checkable|string, "—") }}</td>
+      <td class="small">{% if v.unmatched is not none %}{% if v.unmatched %}<details><summary>{{ v.unmatched|length }} item(s) of v{{ v.compared_with }} not matched</summary><ul>{% for n in v.unmatched[:40] %}<li>{{ n.title }}</li>{% endfor %}</ul><p class="muted">Ticks on these stay on the old version when a batch moves.</p></details>{% else %}<span class="badge teal">all items of v{{ v.compared_with }} matched</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="nowrap right">
+        {% if v.status in ("mapping", "published") %}<a class="btn sm" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/map">Map</a> <a class="btn sm" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/preview">Preview</a>{% endif %}
+        {% if v.status == "published" %}<a class="btn sm ghost" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/view">View</a>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  {{ empty("i-file", "No file uploaded yet", "Upload the Word file above.") }}
+  {% endif %}
+</div>
+
+{% if batches %}
+<div class="card flush">
+  <div class="card-head"><h2>Batches using this runbook</h2></div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Batch</th><th>Programme › project</th><th>Version</th><th></th></tr></thead>
+    <tbody>
+    {% for x in batches %}
+    <tr><td><a href="/admin/batches/{{ x.batch.id }}">{{ x.batch.name }}</a></td><td class="small">{{ x.programme.name }} › {{ x.project.name }}</td>
+      <td>{% if x.version %}v{{ x.version.number }}{% else %}<span class="muted small">not started (gets the current version)</span>{% endif %}</td>
+      <td class="right">{% if pubs and x.version %}<form method="post" action="/admin/batches/{{ x.batch.id }}/projects/{{ x.project.id }}/version" class="btn-row" style="justify-content:flex-end">{% include "_guard.html" %}
+        <select name="version_id" style="width:auto;margin:0">{% for p in pubs %}<option value="{{ p.id }}" {% if p.id == x.version.id %}selected{% endif %}>v{{ p.number }}</option>{% endfor %}</select>
+        <button class="btn sm" type="submit" data-confirm="Move {{ x.batch.name }} to this version? Matching ticks are carried across.">Move</button></form>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

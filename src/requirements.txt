@@ -1,0 +1,11 @@
+# Runtime packages for the Lambda functions. Exact versions: the app builds the same way every time.
+boto3==1.43.126
+botocore==1.43.126
+s3transfer==0.19.3
+jmespath==1.1.0
+python-dateutil==2.9.0.post0
+six==1.17.0
+urllib3==2.8.0
+Jinja2==3.1.6
+MarkupSafe==3.0.4
+tzdata==2026.6

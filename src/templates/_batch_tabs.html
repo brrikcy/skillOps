@@ -1,0 +1,18 @@
+{% from "_ui.html" import icon %}
+{% set b = page.batch %}
+<div class="page-head" style="margin-bottom:8px">
+  <div><div class="eyebrow">{{ page.institution.name }} › {{ page.programme.name }}</div><h1>{{ b.name }}</h1></div>
+  <div class="actions">{% if staff.is_super %}<a class="btn sm" href="/admin/batches/{{ b.id }}">{{ icon("i-settings") }}Batch settings</a>{% endif %}</div>
+</div>
+<nav class="tabs">
+  <a href="/b/{{ b.id }}" class="{% if tab in ('overview', 'teach') %}on{% endif %}">{{ icon("i-book") }}Teach</a>
+  <a href="/b/{{ b.id }}/tools" class="{% if tab in ('tools', 'live', 'mcq') %}on{% endif %}">{{ icon("i-settings") }}Tools</a>
+  <a href="/dashboard/b/{{ b.id }}">{{ icon("i-grid") }}Progress</a>
+</nav>
+{% if tab in ('tools', 'live', 'mcq') %}
+<nav class="subtabs" aria-label="Tools">
+  <a href="/b/{{ b.id }}/tools" class="{% if tab == 'tools' %}on{% endif %}">All tools</a>
+  <a href="/b/{{ b.id }}/live" class="{% if tab == 'live' %}on{% endif %}">{{ live_data_name() }}</a>
+  <a href="/b/{{ b.id }}/mcq" class="{% if tab == 'mcq' %}on{% endif %}">MCQ tests</a>
+</nav>
+{% endif %}

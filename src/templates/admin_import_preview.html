@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow"><a href="/admin/import">Import</a></div><h1>Check the import</h1><p class="sub">{{ result.rows }} row(s) read.</p></div></div>
+<div class="card">
+  <div class="card-body">
+  {% if result.errors %}
+    <div class="flash bad">Please correct these lines and check the file again. Nothing has changed.</div>
+    <ul>{% for e in result.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    <a class="btn" href="/admin/import">Back to import</a>
+  {% elif not result.actions %}
+    <div class="flash ok">Everything in this file already exists. Nothing needs changing.</div>
+  {% else %}
+    <h2 style="margin-bottom:8px">These {{ result.actions|length }} change(s) will be made</h2>
+    <ol>{% for a in result.actions %}<li>{{ a }}</li>{% endfor %}</ol>
+    <form method="post" action="/admin/import/{{ iid }}/apply" class="btn-row">{% include "_guard.html" %}
+      <button class="btn primary" type="submit">{{ icon("i-check") }}Apply</button><a class="btn ghost" href="/admin/import">Cancel</a></form>
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

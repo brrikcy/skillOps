@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+{% include "_batch_tabs.html" %}
+{% set bid = page.batch.id %}
+{% if problem %}
+<div class="card">{{ empty("i-test", problem) }}</div>
+{% else %}
+<div class="stats">
+  <div class="stat"><div class="label">MCQ batch name</div><div class="value" style="font-size:1.2rem">{{ page.batch.mcq_batch }}</div></div>
+  <div class="stat"><div class="label">Attempts marked</div><div class="value">{{ (summary.tests or [])|sum(attribute="written") }}</div><div class="foot">over {{ (summary.tests or [])|length }} test(s)</div></div>
+  <div class="stat"><div class="label">Latest average</div><div class="value">{% if summary.latest %}{{ summary.latest.average }}%{% else %}—{% endif %}</div><div class="foot">{{ summary.latest.title if summary.latest else "no results yet" }}</div></div>
+  <div class="stat"><div class="label">Student link</div>{% if links.studentUrl %}<div class="btn-row" style="margin-top:6px"><button class="btn sm" type="button" data-copy data-copy-text="{{ links.studentUrl }}">{{ icon("i-copy", "sm") }}Copy link</button><a class="btn sm ghost" href="{{ links.studentUrl }}" target="_blank" rel="noopener">Open</a></div>{% else %}<div class="foot">not set in the sheet</div>{% endif %}</div>
+</div>
+
+<div class="card flush">
+  <div class="card-head"><h2>Tests for this batch</h2><a class="actions btn sm" href="/b/{{ bid }}/mcq/register">{{ icon("i-list", "sm") }}Marks register</a></div>
+  {% if tests %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Test</th><th class="num">Questions</th><th class="num">Minutes</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for t in tests %}
+    <tr>
+      <td><strong>{{ t.id }}</strong> · {{ t.title }}<div class="muted small">{% if t.batches %}Batches: {{ t.batches|join(", ") }}{% else %}All batches{% endif %}{% if t.accessCode %} · access code set{% endif %}</div></td>
+      <td class="num">{{ t.questions }}</td><td class="num">{{ t.duration }}</td>
+      <td>{% if t.active %}<span class="badge teal">open</span>{% else %}<span class="badge grey">closed</span>{% endif %}</td>
+      <td class="right nowrap">
+        <form method="post" action="/b/{{ bid }}/mcq/tests/{{ t.id }}/active" class="inline">{% include "_guard.html" %}<input type="hidden" name="active" value="{{ '0' if t.active else '1' }}">
+          <button class="btn sm {% if not t.active %}primary{% endif %}" type="submit" data-confirm="{{ 'Close' if t.active else 'Open' }} test {{ t.id }} for students?">{{ "Close" if t.active else "Open" }}</button></form>
+        <a class="btn sm" href="/b/{{ bid }}/mcq/monitor/{{ t.id }}">{{ icon("i-pulse", "sm") }}Monitor</a>
+        <a class="btn sm ghost" href="/b/{{ bid }}/mcq/results/{{ t.id }}">Results</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}{{ empty("i-test", "No tests for this batch yet", "Import questions below to make a test.") }}{% endif %}
+</div>
+
+<div class="grid two">
+  <div class="card">
+    <div class="card-head"><h2>{{ icon("i-upload") }} Import questions</h2></div>
+    <div class="card-body">
+      <form method="post" action="/b/{{ bid }}/mcq/import" enctype="multipart/form-data">{% include "_guard.html" %}
+        <div class="form-row">
+          <label>Test ID<input name="test_id" required maxlength="30" placeholder="for example W03"></label>
+          <label>When the test has questions<select name="mode"><option value="add">Add to them</option><option value="replace">Replace them</option></select></label>
+        </div>
+        <label>CSV file<input type="file" name="file" accept=".csv,text/csv" required><span class="hint">Headings: Question, A, B, C, D, Answer, Marks (as in the MCQ system's template).</span></label>
+        <button class="btn primary" type="submit">Import</button>
+      </form>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>{{ icon("i-refresh") }} Allow a re-attempt</h2></div>
+    <div class="card-body">
+      <form method="post" action="/b/{{ bid }}/mcq/reattempt">{% include "_guard.html" %}
+        <div class="form-row">
+          <label>Test ID<input name="test_id" required maxlength="30"></label>
+          <label>Student email<input type="email" name="email" required></label>
+        </div>
+        <button class="btn" type="submit" data-confirm="Allow this student to write the test again? The earlier result is kept and marked.">Allow re-attempt</button>
+      </form>
+      {% if links.monitorUrl %}<p class="muted small" style="margin-top:12px">Staff only: <a href="{{ links.monitorUrl }}" target="_blank" rel="noopener">the MCQ system's own monitor</a> (do not share this link).</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

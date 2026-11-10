@@ -1,0 +1,757 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SkillOps by Robomy - OJT project management for trainers.
+  Serverless: CloudFront + API Gateway + Lambda + DynamoDB + S3 + Cognito.
+  Deploy: "sam build --use-container" then "sam deploy --guided". Remove everything: "sam delete".
+
+# ---------------------------------------------------------------------------
+# Parameters: the questions "sam deploy --guided" asks you.
+# ---------------------------------------------------------------------------
+Parameters:
+  PlatformName:
+    Type: String
+    Default: SkillOps
+    Description: Name shown on every page ("by Robomy" is added beside it).
+  LiveDataName:
+    Type: String
+    Default: SkillOps Live Data
+    Description: Name of the live-data module.
+  SuperadminEmail:
+    Type: String
+    AllowedPattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    Description: Your email. The first supervisor account is made with it; Cognito emails you a temporary password.
+  SuperadminName:
+    Type: String
+    Default: Supervisor
+    Description: Your name, as shown in the app.
+  AlarmEmail:
+    Type: String
+    Default: ""
+    Description: Where alarm and budget emails go. Leave empty to use SuperadminEmail.
+  MonthlyBudgetUSD:
+    Type: Number
+    Default: 10
+    MinValue: 0
+    Description: Email when this month's AWS cost passes 80% of this amount (USD). 0 = no budget.
+  RateLimitPerMinute:
+    Type: Number
+    Default: 30
+    Description: Live data - requests per minute allowed for each student API key.
+  PageSize:
+    Type: Number
+    Default: 5000
+    Description: Live data - most rows in one page of /v1/fetch.
+  FetchLogDays:
+    Type: Number
+    Default: 180
+    Description: Live data - days to keep each fetch-log line (running totals are kept).
+  PracticeDataset:
+    Type: String
+    Default: practice_orders
+    Description: Live data - dataset name used in every Developer docs example.
+  SessionHours:
+    Type: Number
+    Default: 12
+    MinValue: 1
+    MaxValue: 72
+    Description: A staff sign-in lasts this many hours after the last page visit.
+  WebDomainName:
+    Type: String
+    Default: ""
+    Description: Optional. Your own web address, for example skillops.robomy.in. Needs WebCertificateArn.
+  WebCertificateArn:
+    Type: String
+    Default: ""
+    Description: Optional. ACM certificate ARN for WebDomainName. Must be in us-east-1 (a CloudFront rule).
+
+Conditions:
+  HasWebDomain: !And [!Not [!Equals [!Ref WebDomainName, ""]], !Not [!Equals [!Ref WebCertificateArn, ""]]]
+  HasBudget: !Not [!Equals [!Ref MonthlyBudgetUSD, 0]]
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]          # Graviton: about 20% cheaper than x86
+    MemorySize: 512
+    Timeout: 29                     # API Gateway waits at most 30 seconds
+    CodeUri: src/
+    Environment:
+      Variables:
+        PLATFORM_NAME: !Ref PlatformName
+        LIVE_DATA_NAME: !Ref LiveDataName
+        TABLE_CORE: !Ref CoreTable
+        TABLE_PROGRESS: !Ref ProgressTable
+        TABLE_AUDIT: !Ref AuditTable
+        RUNBOOK_BUCKET: !Ref RunbookBucket
+        WEB_BUCKET: !Ref WebBucket
+        USER_POOL_ID: !Ref UserPool
+        USER_POOL_CLIENT_ID: !Ref UserPoolClient
+        SERVER_SECRET_ARN: !Ref ServerSecret
+        MCQ_SECRET_ARN: !Ref McqSecrets
+        SESSION_HOURS: !Ref SessionHours
+        TABLE_LIVE_ROWS: !Ref LiveRowsTable
+        TABLE_LIVE_CONFIG: !Ref LiveConfigTable
+        TABLE_LIVE_STUDENTS: !Ref LiveStudentsTable
+        TABLE_LIVE_FETCHLOG: !Ref LiveFetchLogTable
+        TABLE_LIVE_RATELIMIT: !Ref LiveRateLimitTable
+        RATE_LIMIT_PER_MINUTE: !Ref RateLimitPerMinute
+        PAGE_SIZE: !Ref PageSize
+        FETCHLOG_TTL_DAYS: !Ref FetchLogDays
+        PRACTICE_DATASET: !Ref PracticeDataset
+        METRICS_NAMESPACE: !Sub "SkillOpsLiveData-${AWS::StackName}"
+        PUBLIC_URL: !If [HasWebDomain, !Sub "https://${WebDomainName}", ""]
+
+Resources:
+  # =========================================================================
+  # DynamoDB: the database. On-demand = pay per request, nothing when idle.
+  # Point-in-time recovery: AWS keeps 35 days of history; you can restore any second.
+  # =========================================================================
+  CoreTable:              # institutions, programmes, projects, batches, trainers, links, jobs, sessions
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+        - {AttributeName: gsi1pk, AttributeType: S}
+        - {AttributeName: gsi1sk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      GlobalSecondaryIndexes:
+        - IndexName: gsi1
+          KeySchema:
+            - {AttributeName: gsi1pk, KeyType: HASH}
+            - {AttributeName: gsi1sk, KeyType: RANGE}
+          Projection: {ProjectionType: ALL}
+      TimeToLiveSpecification: {AttributeName: ttl, Enabled: true}     # sign-in sessions and other short-lived items
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      SSESpecification: {SSEEnabled: true}
+
+  ProgressTable:          # ticks and notes, per batch x runbook version x item
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      SSESpecification: {SSEEnabled: true}
+
+  AuditTable:             # who did what, when, and the result
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      SSESpecification: {SSEEnabled: true}
+
+
+  # ---- SkillOps Live Data (the live-data module) ----
+  LiveRowsTable:          # every data row; partition = one dataset upload, sort = data time + row id
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: N}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+  LiveConfigTable:        # feeds, clocks, datasets, join codes
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+  LiveStudentsTable:      # students and their API key hashes
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: batch, AttributeType: S}
+        - {AttributeName: roll, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+      GlobalSecondaryIndexes:
+        - IndexName: by_batch
+          KeySchema:
+            - {AttributeName: batch, KeyType: HASH}
+            - {AttributeName: roll, KeyType: RANGE}
+          Projection: {ProjectionType: ALL}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+  LiveFetchLogTable:      # one line per fetch + running totals per student and dataset
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+        - {AttributeName: sum_batch, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      GlobalSecondaryIndexes:
+        - IndexName: by_batch
+          KeySchema:
+            - {AttributeName: sum_batch, KeyType: HASH}
+            - {AttributeName: sk, KeyType: RANGE}
+          Projection: {ProjectionType: ALL}
+      TimeToLiveSpecification: {AttributeName: expires, Enabled: true}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+  LiveRateLimitTable:     # per-minute counters; TTL removes them
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+      TimeToLiveSpecification: {AttributeName: expires, Enabled: true}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+  # =========================================================================
+  # S3: file storage. Both buckets are private; only CloudFront may read the parts it serves.
+  # =========================================================================
+  RunbookBucket:          # runbook uploads, published runbook pages, images, logos, exports
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration: {Status: Enabled}       # an overwritten or deleted file can be got back
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      LifecycleConfiguration:
+        Rules:
+          - {Id: exports-30-days, Status: Enabled, Prefix: exports/, ExpirationInDays: 30}
+          - {Id: old-versions-1-year, Status: Enabled, NoncurrentVersionExpiration: {NoncurrentDays: 365}}
+          - {Id: unfinished-uploads, Status: Enabled, AbortIncompleteMultipartUpload: {DaysAfterInitiation: 7}}
+
+  WebBucket:              # CSS, JavaScript, logo
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub "${WebBucket.Arn}/static/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+
+  RunbookBucketPolicy:    # CloudFront may read media/ (images and logos) only, never uploads or exports
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref RunbookBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub "${RunbookBucket.Arn}/media/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+          - Sid: HttpsOnly
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt RunbookBucket.Arn, !Sub "${RunbookBucket.Arn}/*"]
+            Condition: {Bool: {"aws:SecureTransport": "false"}}
+
+  # =========================================================================
+  # Secrets Manager: secrets that must never be in code or in the database export.
+  # =========================================================================
+  ServerSecret:           # live data: API key hashing and page-token signing (used from Phase 3)
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: !Sub "${PlatformName} server secret. Do not change: all student API keys would stop working."
+      GenerateSecretString: {PasswordLength: 48, ExcludePunctuation: true}
+
+  McqSecrets:             # each institution's MCQ (Apps Script) shared secret, as one JSON map
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: !Sub "${PlatformName} MCQ connection secrets, one per institution. Set from the app."
+      SecretString: "{}"
+
+  # =========================================================================
+  # Cognito: sign-in accounts for the supervisor and trainers.
+  # The app shows its own sign-in form and checks passwords with Cognito.
+  # =========================================================================
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-staff"
+      DeletionProtection: INACTIVE                      # so "sam delete" can remove it
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      MfaConfiguration: "OFF"
+      AccountRecoverySetting:
+        RecoveryMechanisms: [{Name: verified_email, Priority: 1}]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 7
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true                  # no open sign-up
+        InviteMessageTemplate:
+          EmailSubject: !Sub "Your ${PlatformName} account"
+          EmailMessage: !Sub
+            - "Hello. Your supervisor has made you a ${PlatformName} by Robomy account.<br><br>Email: {username}<br>Temporary password: {####}<br><br>Sign in at: ${Where}<br>You will choose your own password the first time you sign in. The temporary password works for 7 days.<br><br>Robomy"
+            - Where: !If [HasWebDomain, !Sub "https://${WebDomainName}", "the address your supervisor sends you"]
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailSubject: !Sub "Your ${PlatformName} code"
+        EmailMessage: !Sub "Your ${PlatformName} code is {####}. It works for one hour."
+      Schema:
+        - {Name: email, AttributeDataType: String, Required: true, Mutable: true}
+        - {Name: name, AttributeDataType: String, Required: false, Mutable: true}
+
+  SuperadminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: {UserPoolId: !Ref UserPool, GroupName: superadmin, Description: Supervisor. Full access.}
+
+  TrainerGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties: {UserPoolId: !Ref UserPool, GroupName: trainer, Description: Trainer. Linked batches only.}
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: skillops-server
+      GenerateSecret: false
+      ExplicitAuthFlows: [ALLOW_USER_PASSWORD_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+      PreventUserExistenceErrors: ENABLED
+      IdTokenValidity: 60
+      AccessTokenValidity: 60
+      RefreshTokenValidity: 12
+      TokenValidityUnits: {IdToken: minutes, AccessToken: minutes, RefreshToken: hours}
+
+  SuperadminUser:
+    Type: AWS::Cognito::UserPoolUser
+    Properties:
+      UserPoolId: !Ref UserPool
+      Username: !Ref SuperadminEmail
+      DesiredDeliveryMediums: [EMAIL]
+      UserAttributes:
+        - {Name: email, Value: !Ref SuperadminEmail}
+        - {Name: email_verified, Value: "true"}
+        - {Name: name, Value: !Ref SuperadminName}
+
+  SuperadminInGroup:
+    Type: AWS::Cognito::UserPoolUserToGroupAttachment
+    Properties:
+      UserPoolId: !Ref UserPool
+      GroupName: !Ref SuperadminGroup
+      Username: !Ref SuperadminUser
+
+  # =========================================================================
+  # API Gateway (HTTP API): the front door that hands each request to Lambda.
+  # =========================================================================
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 200       # safety cap for the whole app
+        ThrottlingRateLimit: 100
+
+  # =========================================================================
+  # Lambda: our Python code. Runs only when a request comes in.
+  # =========================================================================
+  WebFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Every staff page (server-made HTML)
+      Handler: web_app.handler
+      LoggingConfig: {LogGroup: !Ref WebLogs}
+      Environment:
+        Variables:
+          JOBS_FUNCTION: !Ref JobsFunction
+      Policies:
+        - DynamoDBCrudPolicy: {TableName: !Ref CoreTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref ProgressTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref AuditTable}
+        - DynamoDBReadPolicy: {TableName: !Ref LiveRowsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveConfigTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveStudentsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveFetchLogTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveRateLimitTable}
+        - S3CrudPolicy: {BucketName: !Ref RunbookBucket}
+        - S3ReadPolicy: {BucketName: !Ref WebBucket}
+        - AWSSecretsManagerGetSecretValuePolicy: {SecretArn: !Ref ServerSecret}
+        - AWSSecretsManagerGetSecretValuePolicy: {SecretArn: !Ref McqSecrets}
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:PutSecretValue
+              Resource: !Ref McqSecrets
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !GetAtt JobsFunction.Arn
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminAddUserToGroup
+                - cognito-idp:AdminDisableUser
+                - cognito-idp:AdminEnableUser
+                - cognito-idp:AdminUserGlobalSignOut
+                - cognito-idp:AdminResetUserPassword
+                - cognito-idp:DescribeUserPool
+              Resource: !GetAtt UserPool.Arn
+      Events:
+        Everything:
+          Type: HttpApi
+          Properties: {ApiId: !Ref HttpApi}         # no path = the $default route: every request
+
+  JobsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Background jobs (export, runbook processing). Never called by a browser.
+      Handler: jobs.handler
+      Timeout: 900
+      MemorySize: 1024
+      LoggingConfig: {LogGroup: !Ref JobsLogs}
+      Policies:
+        - DynamoDBCrudPolicy: {TableName: !Ref CoreTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref ProgressTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref AuditTable}
+        - DynamoDBReadPolicy: {TableName: !Ref LiveConfigTable}
+        - DynamoDBReadPolicy: {TableName: !Ref LiveStudentsTable}
+        - DynamoDBReadPolicy: {TableName: !Ref LiveFetchLogTable}
+        - S3CrudPolicy: {BucketName: !Ref RunbookBucket}
+
+  StudentApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: SkillOps Live Data student API (/v1/health, status, register, whoami, datasets, fetch)
+      Handler: student_api.handler
+      LoggingConfig: {LogGroup: !Ref StudentApiLogs}
+      Policies:
+        - DynamoDBReadPolicy: {TableName: !Ref CoreTable}       # only to show students their batch's name
+        - DynamoDBReadPolicy: {TableName: !Ref LiveRowsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveConfigTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveStudentsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveFetchLogTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveRateLimitTable}
+        - AWSSecretsManagerGetSecretValuePolicy: {SecretArn: !Ref ServerSecret}
+      Events:
+        V1Get: {Type: HttpApi, Properties: {ApiId: !Ref HttpApi, Path: "/v1/{proxy+}", Method: GET}}
+        V1Post: {Type: HttpApi, Properties: {ApiId: !Ref HttpApi, Path: "/v1/{proxy+}", Method: POST}}
+
+  # Copies the static files into the web bucket on every deploy, and empties both buckets
+  # (every file version) when the stack is deleted, so "sam delete" can remove them.
+  WebPublisherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Publishes static files to S3; empties buckets on stack delete
+      Handler: publisher.handler
+      Timeout: 300
+      MemorySize: 256
+      AutoPublishAlias: live                 # a new version whenever the code or files change
+      LoggingConfig: {LogGroup: !Ref PublisherLogs}
+      Policies:
+        - S3CrudPolicy: {BucketName: !Ref WebBucket}
+        - S3CrudPolicy: {BucketName: !Ref RunbookBucket}
+        - Statement:
+            - Effect: Allow
+              Action: [s3:ListBucketVersions, s3:DeleteObjectVersion]
+              Resource:
+                - !GetAtt WebBucket.Arn
+                - !Sub "${WebBucket.Arn}/*"
+                - !GetAtt RunbookBucket.Arn
+                - !Sub "${RunbookBucket.Arn}/*"
+            - Effect: Allow
+              Action: cloudfront:CreateInvalidation
+              Resource: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+
+  Site:
+    Type: Custom::Site
+    Properties:
+      ServiceToken: !GetAtt WebPublisherFunction.Arn
+      CodeVersion: !Ref WebPublisherFunction.Version
+      WebBucket: !Ref WebBucket
+      RunbookBucket: !Ref RunbookBucket
+      DistributionId: !Ref Distribution
+
+  # Our own log groups: kept 30 days, and removed by "sam delete".
+  WebLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: !Sub "/${AWS::StackName}/web", RetentionInDays: 30}
+  StudentApiLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: !Sub "/${AWS::StackName}/student-api", RetentionInDays: 30}
+  JobsLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: !Sub "/${AWS::StackName}/jobs", RetentionInDays: 30}
+  PublisherLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: !Sub "/${AWS::StackName}/publisher", RetentionInDays: 30}
+
+  # =========================================================================
+  # CloudFront: one HTTPS address for everything.
+  #   /static/*  -> web bucket (cached)
+  #   /media/*   -> runbook bucket, media/ only (cached)
+  #   all else   -> API Gateway -> WebFunction (never cached; cookies and query strings passed on)
+  # =========================================================================
+  BucketOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${AWS::StackName}-oac"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  KeepHostFunction:       # API Gateway gets its own address as Host; this keeps the browser's address too
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub "${AWS::StackName}-keep-host"
+      AutoPublish: true
+      FunctionConfig: {Comment: Copy the viewer host and address into x-skillops-host and x-skillops-viewer, Runtime: cloudfront-js-2.0}
+      FunctionCode: |
+        function handler(event) {
+          var r = event.request;
+          if (r.headers.host) { r.headers['x-skillops-host'] = {value: r.headers.host.value}; }
+          r.headers['x-skillops-viewer'] = {value: event.viewer.ip};
+          return r;
+        }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "${PlatformName} by Robomy"
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200          # includes edge locations in India
+        Aliases: !If [HasWebDomain, [!Ref WebDomainName], !Ref "AWS::NoValue"]
+        ViewerCertificate: !If
+          - HasWebDomain
+          - {AcmCertificateArn: !Ref WebCertificateArn, SslSupportMethod: sni-only, MinimumProtocolVersion: TLSv1.2_2021}
+          - {CloudFrontDefaultCertificate: true}
+        Origins:
+          - Id: api
+            DomainName: !Sub "${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+            CustomOriginConfig: {OriginProtocolPolicy: https-only, HTTPSPort: 443, OriginReadTimeout: 30,
+                                 OriginSSLProtocols: [TLSv1.2]}
+          - Id: web
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt BucketOAC.Id
+            S3OriginConfig: {OriginAccessIdentity: ""}
+          - Id: runbooks
+            DomainName: !GetAtt RunbookBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt BucketOAC.Id
+            S3OriginConfig: {OriginAccessIdentity: ""}
+        DefaultCacheBehavior:
+          TargetOriginId: api
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          CachedMethods: [GET, HEAD]
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad          # AWS managed "CachingDisabled"
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # AWS managed "AllViewerExceptHostHeader"
+          Compress: true
+          FunctionAssociations:
+            - {EventType: viewer-request, FunctionARN: !GetAtt KeepHostFunction.FunctionARN}
+        CacheBehaviors:
+          - PathPattern: /static/*
+            TargetOriginId: web
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6        # AWS managed "CachingOptimized"
+            Compress: true
+          - PathPattern: /media/*
+            TargetOriginId: runbooks
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            Compress: true
+
+  # =========================================================================
+  # Monitoring: CloudWatch alarms (email via SNS), a dashboard, and a cost budget.
+  # =========================================================================
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "${PlatformName} alarms"
+      Subscription:
+        - Protocol: email
+          Endpoint: !If [HasAlarmEmail, !Ref AlarmEmail, !Ref SuperadminEmail]
+
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: SkillOps returned server errors (5xx).
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions: [{Name: ApiId, Value: !Ref HttpApi}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  WebErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: The page Lambda had errors.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{Name: FunctionName, Value: !Ref WebFunction}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  JobsErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: A background job failed.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{Name: FunctionName, Value: !Ref JobsFunction}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  StudentApiErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: The live-data student API had errors.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{Name: FunctionName, Value: !Ref StudentApiFunction}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "${AWS::StackName}"
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {"type": "metric", "x": 0, "y": 0, "width": 12, "height": 6, "properties": {
+              "title": "Requests", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
+              "metrics": [["AWS/ApiGateway", "Count", "ApiId", "${HttpApi}"]]}},
+            {"type": "metric", "x": 12, "y": 0, "width": 12, "height": 6, "properties": {
+              "title": "4xx and 5xx responses", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
+              "metrics": [["AWS/ApiGateway", "4xx", "ApiId", "${HttpApi}"], [".", "5xx", ".", "."]]}},
+            {"type": "metric", "x": 0, "y": 6, "width": 12, "height": 6, "properties": {
+              "title": "Page time (ms, p95)", "region": "${AWS::Region}", "stat": "p95", "period": 300, "view": "timeSeries",
+              "metrics": [["AWS/Lambda", "Duration", "FunctionName", "${WebFunction}"]]}},
+            {"type": "metric", "x": 12, "y": 6, "width": 12, "height": 6, "properties": {
+              "title": "Lambda errors", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
+              "metrics": [["AWS/Lambda", "Errors", "FunctionName", "${WebFunction}"], [".", ".", ".", "${JobsFunction}"], [".", ".", ".", "${StudentApiFunction}"]]}}
+          ]
+        }
+
+  CostBudget:
+    Type: AWS::Budgets::Budget
+    Condition: HasBudget
+    Properties:
+      Budget:
+        BudgetName: !Sub "${AWS::StackName}-monthly"
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: !Ref MonthlyBudgetUSD, Unit: USD}
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
+          Subscribers:
+            - {SubscriptionType: EMAIL, Address: !If [HasAlarmEmail, !Ref AlarmEmail, !Ref SuperadminEmail]}
+        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers:
+            - {SubscriptionType: EMAIL, Address: !If [HasAlarmEmail, !Ref AlarmEmail, !Ref SuperadminEmail]}
+
+Outputs:
+  WebUrl:
+    Description: Open this to use SkillOps
+    Value: !If [HasWebDomain, !Sub "https://${WebDomainName}", !Sub "https://${Distribution.DomainName}"]
+  CloudFrontDomain:
+    Description: Point your web domain's CNAME here (if you use one)
+    Value: !GetAtt Distribution.DomainName
+  ApiUrl:
+    Description: API Gateway's own address (CloudFront in front of it is the one to use)
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  TableCore:
+    Value: !Ref CoreTable
+  TableProgress:
+    Value: !Ref ProgressTable
+  TableAudit:
+    Value: !Ref AuditTable
+  RunbookBucketName:
+    Value: !Ref RunbookBucket
+  TableLiveRows:
+    Value: !Ref LiveRowsTable
+  TableLiveConfig:
+    Value: !Ref LiveConfigTable
+  TableLiveStudents:
+    Value: !Ref LiveStudentsTable
+  TableLiveFetchLog:
+    Value: !Ref LiveFetchLogTable
+  TableLiveRateLimit:
+    Value: !Ref LiveRateLimitTable
+  ServerSecretArn:
+    Value: !Ref ServerSecret
+  WebBucketName:
+    Value: !Ref WebBucket
+  DashboardUrl:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${AWS::StackName}"

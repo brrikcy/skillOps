@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty, archived_toggle %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Institutions</h1><p class="sub">Places where Robomy runs training. Each holds its programmes and its own MCQ connection.</p></div>
+  <div class="actions">{{ archived_toggle(show_archived, "/admin/institutions") }}</div>
+</div>
+<div class="grid side-main">
+  <div class="card flush">
+    {% if items %}
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Institution</th><th>Code</th><th class="num">Programmes</th><th></th></tr></thead>
+      <tbody>
+      {% for i in items %}
+      <tr><td><a href="/admin/institutions/{{ i.id }}"><strong>{{ i.name }}</strong></a>{% if i.archived %} <span class="badge grey">archived</span>{% endif %}</td>
+        <td><span class="badge">{{ i.code }}</span></td><td class="num">{{ i.programme_count }}</td>
+        <td class="right"><a class="btn sm" href="/admin/institutions/{{ i.id }}">Open</a></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}{{ empty("i-building", "No institutions yet", "Add the first one on the right.") }}{% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Add an institution</h2></div>
+    <div class="card-body">
+      <form method="post" action="/admin/institutions">{% include "_guard.html" %}
+        <label>Name<input name="name" required maxlength="100" placeholder="for example DBI Skill Park"></label>
+        <label>Short code<input name="code" required maxlength="16" placeholder="for example DBI"></label>
+        <button class="btn primary" type="submit">{{ icon("i-plus") }}Add institution</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

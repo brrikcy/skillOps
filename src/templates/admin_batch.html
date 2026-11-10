@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+{% set b = bc.batch %}
+<div class="page-head">
+  <div><div class="eyebrow"><a href="/admin/programmes/{{ bc.programme.id }}">{{ bc.programme.name }}</a></div>
+    <h1>{{ b.name }} · settings{% if b.archived %} <span class="badge grey">archived</span>{% endif %}</h1></div>
+  <div class="actions"><a class="btn" href="/b/{{ b.id }}">Open batch</a></div>
+</div>
+<div class="grid side-main">
+  <div>
+    <div class="card flush">
+      <div class="card-head"><h2>{{ icon("i-user") }} Trainers</h2></div>
+      {% if linked %}
+      <div class="table-wrap"><table class="table">
+        <tbody>
+        {% for t in linked %}
+        <tr><td><a href="/admin/trainers/{{ t.email|q }}">{{ t.name }}</a>{% if not t.enabled %} <span class="badge grey">turned off</span>{% endif %}<div class="muted small">{{ t.email }}</div></td>
+          <td class="right"><form method="post" action="/admin/batches/{{ b.id }}/trainers/remove" class="inline">{% include "_guard.html" %}<input type="hidden" name="email" value="{{ t.email }}"><button class="btn sm ghost" type="submit">Unlink</button></form></td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}{{ empty("i-user", "No trainer linked yet") }}{% endif %}
+      {% if others %}
+      <div class="card-body" style="border-top:1px solid var(--line)">
+        <form method="post" action="/admin/batches/{{ b.id }}/trainers" class="form-row">{% include "_guard.html" %}
+          <label>Link a trainer<select name="email" required><option value="">Choose…</option>{% for t in others %}<option value="{{ t.email }}">{{ t.name }} ({{ t.email }})</option>{% endfor %}</select></label>
+          <button class="btn primary" type="submit">Link</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    <div class="card flush">
+      <div class="card-head"><h2>{{ icon("i-book") }} Runbook versions</h2><span class="muted small">A batch stays on its version until you move it.</span></div>
+      <div class="table-wrap"><table class="table">
+        <tbody>
+        {% for x in projects %}
+        <tr><td><strong>{{ x.project.name }}</strong></td>
+          <td>{% if x.pinned %}v{{ x.pinned.number }}{% elif x.versions %}<span class="muted small">not started yet</span>{% else %}<span class="muted small">no runbook</span>{% endif %}</td>
+          <td class="right">{% if x.pinned and x.versions|length > 1 %}
+            <form method="post" action="/admin/batches/{{ b.id }}/projects/{{ x.project.id }}/version" class="btn-row" style="justify-content:flex-end">{% include "_guard.html" %}
+              <select name="version_id" style="width:auto;margin:0">{% for v in x.versions %}<option value="{{ v.id }}" {% if v.id == x.pinned.id %}selected{% endif %}>v{{ v.number }}</option>{% endfor %}</select>
+              <button class="btn sm" type="submit" data-confirm="Move {{ b.name }} to this version? Matching ticks are carried across; old ticks are kept.">Move</button></form>{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="card-head"><h2>Details</h2></div>
+      <div class="card-body">
+        <form method="post" action="/admin/batches/{{ b.id }}/update">{% include "_guard.html" %}
+          <label>Batch name<input name="name" value="{{ b.name }}" required maxlength="60"></label>
+          <label>MCQ batch name<input name="mcq_batch" value="{{ b.mcq_batch }}" maxlength="40"><span class="hint">The Batch column in the MCQ system's Students sheet.</span></label>
+          <button class="btn" type="submit">Save</button>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Archive</h2></div>
+      <div class="card-body">
+        {% if b.archived %}<form method="post" action="/admin/batches/{{ b.id }}/unarchive">{% include "_guard.html" %}<button class="btn" type="submit">Make active again</button></form>
+        {% else %}<p class="muted small">Hides this batch from trainers. Ticks, notes and history are kept.</p>
+        <form method="post" action="/admin/batches/{{ b.id }}/archive">{% include "_guard.html" %}<button class="btn danger" type="submit" data-confirm="Archive {{ b.name }}?">{{ icon("i-archive") }}Archive batch</button></form>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

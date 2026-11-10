@@ -1,0 +1,37 @@
+{% if problem %}
+<div class="flash bad">{{ problem }}</div>
+{% else %}
+{% set ss = data.sessions or [] %}
+<div class="stats">
+  <div class="stat"><div class="label">Writing now</div><div class="value">{{ ss|selectattr("status", "equalto", "IN PROGRESS")|list|length }}</div></div>
+  <div class="stat"><div class="label">Finished</div><div class="value">{{ ss|rejectattr("status", "equalto", "IN PROGRESS")|list|length }}</div></div>
+  <div class="stat"><div class="label">Offline</div><div class="value">{{ ss|selectattr("offline")|list|length }}</div></div>
+  <div class="stat"><div class="label">Not started</div><div class="value">{{ (data.notStarted or [])|length }}</div></div>
+</div>
+<div class="card flush">
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th></th><th>Student</th><th>Status</th><th class="num">Answered</th><th class="num">Warnings</th><th class="num">Time left</th><th class="num">Score</th><th></th></tr></thead>
+    <tbody>
+    {% for s in ss|sort(attribute="name") %}
+    <tr class="{% if s.offline %}row-bad{% elif s.warnings %}row-warn{% endif %}">
+      <td><span class="dot {% if s.offline %}off{% elif s.status == 'IN PROGRESS' %}on{% endif %}" title="{% if s.offline %}offline{% else %}seen {{ s.lastSeenSec }} s ago{% endif %}"></span></td>
+      <td>{{ s.name }}<div class="muted small">{{ s.email }}</div></td>
+      <td class="small">{{ s.status }}</td>
+      <td class="num">{{ s.answered }} / {{ s.total }}</td>
+      <td class="num">{{ s.warnings }}</td>
+      <td class="num">{% if s.status == "IN PROGRESS" %}{{ (s.remainingSec // 60) }}:{{ "%02d"|format(s.remainingSec % 60) }}{% else %}—{% endif %}</td>
+      <td class="num">{{ s.score if s.score != "" else "—" }}</td>
+      <td class="right nowrap">{% if s.status == "IN PROGRESS" %}
+        <form method="post" action="/b/{{ page.batch.id }}/mcq/monitor/{{ tid }}/session" class="inline">{% include "_guard.html" %}<input type="hidden" name="session" value="{{ s.id }}"><input type="hidden" name="minutes" value="5"><button class="btn sm" name="action" value="add">+5 min</button></form>
+        <form method="post" action="/b/{{ page.batch.id }}/mcq/monitor/{{ tid }}/session" class="inline">{% include "_guard.html" %}<input type="hidden" name="session" value="{{ s.id }}"><button class="btn sm danger" name="action" value="end" data-confirm="End the test for {{ s.name }} now? Their saved answers are marked.">End test</button></form>
+      {% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="muted">Nobody from this batch has started {{ tid }} yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% if data.notStarted %}<p class="small muted">Not started: {% for n in data.notStarted %}{{ n.name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+{% if data.codes %}<div class="card"><div class="card-head"><h2>Login codes waiting</h2></div><div class="card-body small">{% for c in data.codes %}<div>{{ c.name }} · <code>{{ c.code }}</code></div>{% endfor %}</div></div>{% endif %}
+{% endif %}

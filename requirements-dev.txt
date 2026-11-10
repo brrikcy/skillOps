@@ -1,0 +1,7 @@
+# Laptop packages: tests, local mode, admin.py. Exact versions of everything are in requirements-dev.lock.
+# Install with:  pip install -r requirements-dev.txt -c requirements-dev.lock
+-r src/requirements.txt
+moto[dynamodb,cognitoidp,secretsmanager,s3,awslambda]==5.2.5
+pytest==9.2.0
+cfn-lint==1.60.0
+requests==2.34.2
