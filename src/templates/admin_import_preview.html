@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon %}
 {% block content %}
-<div class="page-head"><div><div class="eyebrow"><a href="/admin/import">Import</a></div><h1>Check the import</h1><p class="sub">{{ result.rows }} row(s) read.</p></div></div>
+<div class="page-head"><div><h1>Check the import</h1><p class="sub">{{ result.rows }} row(s) read.</p></div></div>
 <div class="card">
   <div class="card-body">
   {% if result.errors %}

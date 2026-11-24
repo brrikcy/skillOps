@@ -1,70 +1,67 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon, bar, empty %}
+{% macro name(n) %}{% if n.title.lower().replace(" ", "").startswith(n.short.lower().replace(" ", "")) %}{{ n.title }}{% else %}{{ n.short }} · {{ n.title }}{% endif %}{% endmacro %}
 {% block content %}
 {% include "_batch_tabs.html" %}
 {% set cur = d.current %}{% set bid = page.batch.id %}
-{% if other_batches %}<p class="small muted">Switch batch: {% for o in other_batches %}<a class="badge" href="/b/{{ o.id }}">{{ o.name }}</a> {% endfor %}</p>{% endif %}
 
-{% if cur and cur.s %}
-<div class="card" style="border-left:4px solid var(--red)">
-  <div class="card-body" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
-    <div style="flex:1;min-width:260px">
-      <div class="eyebrow">Now teaching · {{ cur.project.name }}</div>
-      {% if cur.s.next_up %}<h2 style="font-size:1.3rem;margin:2px 0 4px">{{ cur.s.next_up.title }}</h2>
-      <div class="muted small">Next up · {{ cur.s.pub.index[cur.s.next_up.parent].title if cur.s.next_up.parent else "" }}</div>
-      {% else %}<h2 style="font-size:1.3rem">Every item in this project is done</h2>{% endif %}
-      <div style="max-width:440px;margin-top:10px">{{ bar(cur.s.done, cur.s.total, teal=True) }}</div>
-      <div class="muted small">{{ cur.s.done }} of {{ cur.s.total }} done{% if cur.s.position %} · furthest: {{ cur.s.position }}{% endif %}{% if cur.s.last %} · last marked {{ cur.s.last.at|when }} by {{ cur.s.last.by_name }}{% endif %}</div>
+<div class="card today-hero {% if session and session.entries %}is-planned{% endif %}">
+  <div class="card-body">
+    <div class="hero-main">
+      <div class="eyebrow">Today · {{ today_str|day_name }}{% if class_today is true %} · class day{% elif class_today is false %} · no class scheduled{% endif %}</div>
+      {% if session and session.entries %}
+      <h2 class="hero-title">{{ session.entries|length }} part{{ "" if session.entries|length == 1 else "s" }} planned{% if session.by_name %} <span class="muted small">by {{ session.by_name }}</span>{% endif %}</h2>
+      <ol class="plan-mini hero-plan">{% for e in session.entries[:6] %}<li>{% if e.kind == "text" %}<em>{{ e.text }}</em>{% else %}{{ e.title }}{% endif %}</li>{% endfor %}</ol>
+      {% if session.entries|length > 6 %}<div class="muted small">and {{ session.entries|length - 6 }} more</div>{% endif %}
+      {% if session.note %}<p class="day-note" style="margin-top:10px">{{ session.note }}</p>{% endif %}
+      {% else %}
+      <h2 class="hero-title">{% if staff.is_super %}No session planned for today{% else %}Today's session is not planned yet{% endif %}</h2>
+      {% if cur and cur.s and cur.s.next_up %}<p class="muted">The class is at <strong>{{ cur.s.next_up.title }}</strong> in {{ cur.project.name }}.</p>{% endif %}
+      {% endif %}
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <a class="btn primary lg" href="/b/{{ bid }}/p/{{ cur.project.id }}/teach">{{ icon("i-play") }}Teach the next section</a>
-      <a class="btn sm ghost" href="/b/{{ bid }}/p/{{ cur.project.id }}/{{ 'i/' ~ cur.s.next_up.id if cur.s.next_up else 'intro' }}">Detail view and search</a>
+    {% if cur and cur.s %}
+    <div class="hero-actions">
+      {% if session and session.entries %}
+      <a class="btn primary lg" href="/b/{{ bid }}/session?date={{ today_str }}">{{ icon("i-play") }}{{ "See the session" if staff.is_super else "Teach" }}</a>
+      <a class="btn" href="/b/{{ bid }}/p/{{ cur.project.id }}/plan?date={{ today_str }}" data-popup>{{ icon("i-steps", "sm") }}{{ "See the plan" if staff.is_super else "Change the plan" }}</a>
+      {% else %}
+      {% if not staff.is_super %}<a class="btn primary lg" href="/b/{{ bid }}/p/{{ cur.project.id }}/plan?date={{ today_str }}" data-popup>{{ icon("i-steps") }}Plan today's session</a>{% endif %}
+      {% endif %}
+      <a class="btn ghost" href="/b/{{ bid }}/p/{{ cur.project.id }}/read" data-popup>{{ icon("i-book", "sm") }}View runbook</a>
     </div>
+    {% endif %}
   </div>
 </div>
-{% endif %}
 
-<div class="grid side-main">
+<div class="grid two">
   <div>
-    <div class="card flush">
-      <div class="card-head"><h2>Projects</h2><span class="muted small">in teaching order</span></div>
-      {% if d.projects %}
-      <div class="table-wrap"><table class="table">
-        <tbody>
-        {% for p in d.projects %}
-        <tr>
-          <td style="width:34px" class="muted">{{ loop.index }}</td>
-          <td><strong>{{ p.project.name }}</strong>{% if p.s and p.s.position %}<div class="muted small">{{ p.s.position }}</div>{% endif %}</td>
-          <td style="width:220px">{% if p.s %}{{ bar(p.s.done, p.s.total, teal=(p.s.done >= p.s.total)) }}{% else %}<span class="muted small">No runbook yet</span>{% endif %}</td>
-          <td class="right nowrap" style="width:150px">{% if p.s %}<a class="btn sm primary" href="/b/{{ bid }}/p/{{ p.project.id }}/teach">Teach</a> <a class="btn sm ghost" href="/b/{{ bid }}/p/{{ p.project.id }}/intro" title="Detail view">Detail</a>{% endif %}</td>
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table></div>
-      {% else %}{{ empty("i-steps", "This programme has no projects yet", "Your supervisor adds them.") }}{% endif %}
+    <div class="card">
+      <div class="card-head"><h2>{{ icon("i-clock") }} Coming class days</h2><a class="actions small" href="/b/{{ bid }}/calendar">Calendar</a></div>
+      <div class="card-body small">
+        {% if cal and cal.set and cal.project %}
+          {% for u in cal.upcoming %}
+          <div class="day-item"><span class="tick {% if u.planned %}done{% endif %}"></span>
+            <div style="flex:1"><strong>{{ u.date|day_name }}</strong>{% if u.date == cal.today %} <span class="badge brand">today</span>{% endif %}
+              <div class="muted">{% if u.planned %}{{ u.planned }} part{{ "" if u.planned == 1 else "s" }} planned{% else %}not planned yet{% endif %}</div></div>
+            <a class="btn sm {% if not u.planned and not staff.is_super %}primary{% endif %}" href="/b/{{ bid }}/p/{{ cal.project }}/plan?date={{ u.date }}" data-popup>{% if u.planned %}Open{% elif staff.is_super %}See{% else %}Plan{% endif %}</a>
+          </div>
+          {% else %}<span class="muted">No more class days in the course.</span>{% endfor %}
+        {% elif cal and not cal.set %}
+          <span class="muted">{% if staff.is_super %}Set the days this batch meets on its <a href="/admin/batches/{{ bid }}#class-days">settings</a>.{% else %}Your supervisor has not set this batch's class days yet.{% endif %}</span>
+        {% else %}<span class="muted">Class days show once a project has a runbook.</span>{% endif %}
+      </div>
     </div>
   </div>
   <div>
     <div class="card">
-      <div class="card-head"><h2>{{ icon("i-clock") }} Today's class</h2><a class="actions small" href="/b/{{ bid }}/recap">Recap</a></div>
+      <div class="card-head"><h2>{{ icon("i-check") }} Covered today</h2><a class="actions small" href="/b/{{ bid }}/recap">Recap</a></div>
       <div class="card-body small">
         {% if today %}
           {% for g in today %}<div style="margin-bottom:8px"><strong>{{ g.project.name }}</strong>: {{ g.covered|length }} item(s) covered
             <div class="muted">{% for n, t in g.covered[:4] %}{{ n.code or n.short }}{% if not loop.last %}, {% endif %}{% endfor %}{% if g.covered|length > 4 %} …{% endif %}</div></div>{% endfor %}
           <a class="btn sm" href="/b/{{ bid }}/recap">{{ icon("i-copy", "sm") }}Copy the recap for students</a>
-        {% else %}<span class="muted">Nothing marked done yet today. Items you mark in the class view appear here, ready to send as a recap.</span>{% endif %}
+        {% else %}<span class="muted">Nothing marked done yet today.</span>{% endif %}
       </div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>{{ icon("i-refresh") }} Needs a repeat</h2>{% if repeats %}<span class="badge warn">{{ repeats|length }}</span>{% endif %}</div>
-      <div class="card-body small">
-        {% for p, n in repeats[:8] %}<div><a href="/b/{{ bid }}/p/{{ p.project.id }}/teach/{{ n.parent or n.id }}#a-{{ n.id }}">{{ n.title }}</a> <span class="muted">· {{ p.project.name }}</span></div>
-        {% else %}<span class="muted">Nothing flagged. Use the ↻ button on an item when the class needs it again.</span>{% endfor %}
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>{{ icon("i-user") }} Trainers</h2></div>
-      <div class="card-body small">{% for t in d.trainers %}<div>{{ t.name }} <span class="muted">· {{ t.email }}</span></div>{% else %}<span class="muted">No trainer linked.</span>{% endfor %}</div>
     </div>
   </div>
 </div>

@@ -1,52 +1,100 @@
 {% extends "base.html" %}
-{% from "_ui.html" import icon, empty %}
+{% from "_ui.html" import icon, empty, bar %}
+{% from "_remove.html" import remove_card with context %}
 {% block content %}
 {% set b = bc.batch %}
-<div class="page-head">
-  <div><div class="eyebrow"><a href="/admin/programmes/{{ bc.programme.id }}">{{ bc.programme.name }}</a></div>
-    <h1>{{ b.name }} · settings{% if b.archived %} <span class="badge grey">archived</span>{% endif %}</h1></div>
-  <div class="actions"><a class="btn" href="/b/{{ b.id }}">Open batch</a></div>
-</div>
+{% set tab = "settings" %}{% include "_batch_tabs.html" %}
+{% if b.archived %}<div class="archived-banner">{{ icon("i-archive") }}This batch is archived. Its trainers cannot open it. Everything is kept; make it active again below.</div>{% endif %}
 <div class="grid side-main">
   <div>
+{% set bid = b.id %}
+<div class="card flush">
+  <div class="card-head"><h2>{{ icon("i-steps") }} Projects</h2><span class="muted small">choose the current project, or close a project for this batch</span></div>
+  {% if d.projects %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th style="width:44px">#</th><th>Project</th><th style="min-width:180px">Progress</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for p in d.projects %}{% set s = p.s %}{% set is_cur = d.current and p.project.id == d.current.project.id %}
+    {% set complete = (s and s.total and s.done >= s.total) or (not s and p.manual) %}
+    <tr>
+      <td class="muted">{{ loop.index }}</td>
+      <td><strong>{{ p.project.name }}</strong>{% if is_cur %} <span class="badge brand">Current</span>{% endif %}</td>
+      <td>{% if s %}{{ bar(s.done, s.total, teal=complete) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{% if complete %}<span class="badge teal">Complete</span>{% elif not s %}<span class="badge grey">No runbook</span>{% elif s.done %}<span class="badge brand">In progress</span>{% else %}<span class="badge grey">Not started</span>{% endif %}</td>
+      <td class="right nowrap">{% if s and not is_cur %}
+        <form method="post" action="/admin/batches/{{ bid }}/current-project" class="inline">{% include "_guard.html" %}
+          <input type="hidden" name="project" value="{{ p.project.id }}"><button class="btn sm ghost" type="submit" title="Make this the project the batch is in now">Set as current</button></form>{% endif %}
+        {% if not complete %}
+        <form method="post" action="/admin/batches/{{ bid }}/projects/{{ p.project.id }}/complete" class="inline">{% include "_guard.html" %}
+          <button class="btn sm" type="submit" data-confirm="Mark {{ p.project.name }} complete for {{ page.batch.name }}?{% if s %} The {{ s.total - s.done }} item{{ '' if s.total - s.done == 1 else 's' }} not yet done will be marked done in your name.{% else %} It has no runbook, so nothing else is marked.{% endif %}">{{ icon("i-check", "sm") }}Mark complete</button></form>
+        {% elif not s %}
+        <form method="post" action="/admin/batches/{{ bid }}/projects/{{ p.project.id }}/reopen" class="inline">{% include "_guard.html" %}
+          <button class="btn sm ghost" type="submit">Reopen</button></form>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if b.current_project %}<div class="card-body" style="border-top:1px solid var(--line)">
+    <form method="post" action="/admin/batches/{{ bid }}/current-project" class="inline">{% include "_guard.html" %}<input type="hidden" name="project" value="">
+      <span class="muted small">The current project is chosen by hand.</span> <button class="btn sm ghost" type="submit">Follow the latest tick instead</button></form></div>{% endif %}
+  {% else %}{{ empty("i-steps", "No projects yet", "Add projects to this batch's course under Settings › Courses.") }}{% endif %}
+</div>
     <div class="card flush">
       <div class="card-head"><h2>{{ icon("i-user") }} Trainers</h2></div>
       {% if linked %}
       <div class="table-wrap"><table class="table">
         <tbody>
         {% for t in linked %}
-        <tr><td><a href="/admin/trainers/{{ t.email|q }}">{{ t.name }}</a>{% if not t.enabled %} <span class="badge grey">turned off</span>{% endif %}<div class="muted small">{{ t.email }}</div></td>
+        <tr><td><a href="/admin/trainers/{{ t.email|q }}">{{ t.name }}</a>{% if not t.enabled %} <span class="badge archived">turned off</span>{% endif %}<div class="muted small">{{ t.email }}</div></td>
           <td class="right"><form method="post" action="/admin/batches/{{ b.id }}/trainers/remove" class="inline">{% include "_guard.html" %}<input type="hidden" name="email" value="{{ t.email }}"><button class="btn sm ghost" type="submit">Unlink</button></form></td></tr>
         {% endfor %}
         </tbody>
       </table></div>
       {% else %}{{ empty("i-user", "No trainer linked yet") }}{% endif %}
-      {% if others %}
       <div class="card-body" style="border-top:1px solid var(--line)">
+        {% if others %}
         <form method="post" action="/admin/batches/{{ b.id }}/trainers" class="form-row">{% include "_guard.html" %}
-          <label>Link a trainer<select name="email" required><option value="">Choose…</option>{% for t in others %}<option value="{{ t.email }}">{{ t.name }} ({{ t.email }})</option>{% endfor %}</select></label>
-          <button class="btn primary" type="submit">Link</button>
+          <label>Link a trainer of {{ bc.institution.name }}<select name="email" required><option value="">Choose…</option>{% for t in others %}<option value="{{ t.email }}">{{ t.name }} ({{ t.email }})</option>{% endfor %}</select></label>
+          <button class="btn" type="submit">{{ icon("i-plus") }}Link</button>
         </form>
+        {% else %}<p class="muted small" style="margin:0">No other trainer of {{ bc.institution.name }} to link. To link someone, <a href="/admin/institutions/{{ bc.institution.id }}">add them to {{ bc.institution.name }}</a> first.</p>{% endif %}
       </div>
-      {% endif %}
     </div>
     <div class="card flush">
-      <div class="card-head"><h2>{{ icon("i-book") }} Runbook versions</h2><span class="muted small">A batch stays on its version until you move it.</span></div>
+      <div class="card-head"><h2>{{ icon("i-book") }} Runbook versions</h2></div>
       <div class="table-wrap"><table class="table">
         <tbody>
-        {% for x in projects %}
+        {% for x in projects if x.versions %}
         <tr><td><strong>{{ x.project.name }}</strong></td>
           <td>{% if x.pinned %}v{{ x.pinned.number }}{% elif x.versions %}<span class="muted small">not started yet</span>{% else %}<span class="muted small">no runbook</span>{% endif %}</td>
           <td class="right">{% if x.pinned and x.versions|length > 1 %}
             <form method="post" action="/admin/batches/{{ b.id }}/projects/{{ x.project.id }}/version" class="btn-row" style="justify-content:flex-end">{% include "_guard.html" %}
               <select name="version_id" style="width:auto;margin:0">{% for v in x.versions %}<option value="{{ v.id }}" {% if v.id == x.pinned.id %}selected{% endif %}>v{{ v.number }}</option>{% endfor %}</select>
               <button class="btn sm" type="submit" data-confirm="Move {{ b.name }} to this version? Matching ticks are carried across; old ticks are kept.">Move</button></form>{% endif %}</td></tr>
+        {% else %}<tr><td class="muted small">No project of this programme has a runbook yet.</td></tr>
         {% endfor %}
         </tbody>
       </table></div>
     </div>
   </div>
   <div>
+    <div class="card" id="class-days">
+      <div class="card-head"><h2>{{ icon("i-clock") }} Class days</h2></div>
+      <div class="card-body">
+        {% set cd = class_days %}
+        <form method="post" action="/admin/batches/{{ b.id }}/classdays">{% include "_guard.html" %}
+          <div class="small" style="margin-bottom:6px">The batch has class on</div>
+          <div class="pills days" style="margin-bottom:12px">{% for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}<label class="pill"><input type="checkbox" name="wd" value="{{ loop.index0 }}" {% if loop.index0 in cd.weekdays %}checked{% endif %}><span>{{ d }}</span></label>{% endfor %}</div>
+          <div class="form-row">
+            <label>First day<input type="date" name="start" value="{{ cd.start }}"></label>
+            <label>Last day<input type="date" name="end" value="{{ cd.end }}"></label>
+          </div>
+          <label>Days off (holidays)<textarea name="off" rows="2" placeholder="2026-12-25, 2027-01-26">{{ cd.off|join(", ") }}</textarea></label>
+          <label>Extra class days<textarea name="extra" rows="1" placeholder="2026-12-19">{{ cd.extra|join(", ") }}</textarea></label>
+          <button class="btn primary" type="submit">Save class days</button>
+        </form>
+      </div>
+    </div>
     <div class="card">
       <div class="card-head"><h2>Details</h2></div>
       <div class="card-body">
@@ -57,14 +105,9 @@
         </form>
       </div>
     </div>
-    <div class="card">
-      <div class="card-head"><h2>Archive</h2></div>
-      <div class="card-body">
-        {% if b.archived %}<form method="post" action="/admin/batches/{{ b.id }}/unarchive">{% include "_guard.html" %}<button class="btn" type="submit">Make active again</button></form>
-        {% else %}<p class="muted small">Hides this batch from trainers. Ticks, notes and history are kept.</p>
-        <form method="post" action="/admin/batches/{{ b.id }}/archive">{% include "_guard.html" %}<button class="btn danger" type="submit" data-confirm="Archive {{ b.name }}?">{{ icon("i-archive") }}Archive batch</button></form>{% endif %}
-      </div>
-    </div>
+    {{ remove_card("batch", b.name, b.archived, "/admin/batches/" ~ b.id,
+         "Hides the batch from its trainers. Ticks, notes and plans are kept.",
+         "Removes the batch with its ticks, notes, plans, trainer links and simulator students.") }}
   </div>
 </div>
 {% endblock %}

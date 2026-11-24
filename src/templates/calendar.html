@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% from "_calendar.html" import month_card %}
+{% block content %}
+{% include "_batch_tabs.html" %}
+{% set bid = page.batch.id %}
+<p class="muted small" style="margin-top:-6px">Class days: <strong>{{ cal.text }}</strong></p>
+{% if not cal.set %}
+<div class="card">{{ empty("i-clock", "No class days yet", "Set the days this batch meets on its settings page." if staff.is_super else "Your supervisor has not set this batch's class days yet. You can still plan any date from the Session planner.") }}</div>
+{% elif not cal.project %}
+<div class="card">{{ empty("i-book", "No runbook yet", "Plans need a project with a published runbook.") }}</div>
+{% else %}
+<div class="grid side-main">
+  <div class="card"><div class="card-body">{{ month_card(cal, bid, "/b/" ~ bid ~ "/calendar") }}</div></div>
+  <div class="card">
+    <div class="card-head"><h2>{{ icon("i-clock") }} Next class days</h2></div>
+    <div class="card-body">
+      {% for d in cal.upcoming %}
+      <div class="day-item"><span class="tick {% if d.planned %}done{% endif %}"></span>
+        <div style="flex:1"><strong>{{ d.date|day_name }}</strong>{% if d.date == cal.today %} <span class="badge brand">today</span>{% endif %}
+          <div class="muted small">{% if d.planned %}{{ d.planned }} part(s) planned{% else %}no plan yet{% endif %}</div></div>
+        <a class="btn sm {% if not d.planned %}primary{% endif %}" href="/b/{{ bid }}/p/{{ cal.project }}/plan?date={{ d.date }}">{{ "Open plan" if d.planned else ("See" if staff.is_super else "Plan") }}</a>
+      </div>
+      {% else %}<span class="muted small">No more class days in the course.</span>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

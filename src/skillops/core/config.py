@@ -24,7 +24,7 @@ def platform_name():
 
 def live_data_name():
     """Name of the live-data module."""
-    return _get("LIVE_DATA_NAME", "SkillOps Live Data")
+    return _get("LIVE_DATA_NAME", "Live Data Simulator")
 
 
 def company():

@@ -6,7 +6,7 @@ Back-up and set-up:
     python admin.py import-csv --file setup.csv               the same as Settings > Import, from here
     python admin.py outputs                                   show the stack's addresses and names
 
-SkillOps Live Data (large .db files are loaded from your laptop, not through the web page):
+Live Data Simulator (large .db files are loaded from your laptop, not through the web page):
     python admin.py inspect --db uber_live.db
     python admin.py upload --db uber_live.db --mapping datasets.json --feed uber --go-live "2026-11-16 09:00"
     python admin.py activate --dataset uber_trips_live
@@ -65,7 +65,7 @@ def log(action, target="", batch="", result="ok", detail=""):
         print(f"(could not write the audit log: {e})")
 
 
-# ------------------------------------------------------------------ SkillOps Live Data commands
+# ------------------------------------------------------------------ Live Data Simulator commands
 
 def table(rows, headers):
     rows = [[("" if v is None else str(v)) for v in r] for r in rows]

@@ -3,7 +3,7 @@
 A section is a part of the runbook (for the Airtel runbook: a Part, with its actions). Its text flows
 down one column, then into the next one to the right, filling the window; the trainer moves sideways
 (arrow keys, Page Down, the mouse wheel) instead of scrolling a long page. Every action has its own
-"Done" button and "Repeat" flag, saved in place without reloading.
+"Done" button, saved in place without reloading.
 
 Also here: the class recap (what was covered on a day, ready to copy) and the batch's Tools hub.
 """
@@ -34,6 +34,10 @@ def teach_start(ctx, bid, jid):
     bc, proj, vid = _ctx(ctx, bid, jid)
     if not vid:
         return ctx.render("rb_none.html", title=proj["name"], bc=bc, proj=proj)
+    from .runbooks import viewer_for_batch
+    shown = viewer_for_batch(ctx, bid, jid)
+    if shown:
+        return shown
     summ = progress.summary(bid, vid)
     target = summ["next_up"] or (summ["pub"]["checkables"][0] if summ["pub"]["checkables"] else None)
     if not target:
@@ -47,6 +51,10 @@ def teach_section(ctx, bid, jid, nid):
     bc, proj, vid = _ctx(ctx, bid, jid)
     if not vid:
         return ctx.render("rb_none.html", title=proj["name"], bc=bc, proj=proj)
+    from .runbooks import viewer_for_batch
+    shown = viewer_for_batch(ctx, bid, jid, at=nid)
+    if shown:
+        return shown
     summ = progress.summary(bid, vid)
     pub = summ["pub"]
     sections = progress.sections(pub)
@@ -80,26 +88,19 @@ def teach_section(ctx, bid, jid, nid):
             groups.append({"top": top, "sections": []})
         c = summ["per"].get(s["id"], [0, 0])
         groups[-1]["sections"].append({"node": s, "done": c[0], "total": c[1]})
+    from .. import planner
+    try:
+        on_plan = planner.planned_on(bid, _ist_today(), jid)
+    except Exception:  # noqa: BLE001  (the class view must open even if the plan cannot be read)
+        on_plan = {}
+    planned = {n["id"]: on_plan.get(n["id"]) or on_plan.get(section["id"]) for n in items
+               if n["id"] in on_plan or section["id"] in on_plan}
     return ctx.render("teach.html", title=f"{section['title']} · {proj['name']}", bc=bc, proj=proj, pub=pub,
+                      planned=planned,
                       summ=summ, section=section, intro=intro, items=list(zip(items, bodies)), path=path,
                       prev_s=sections[k - 1] if k else None, next_s=sections[k + 1] if k + 1 < len(sections) else None,
                       done_here=done_here, groups=groups, base=f"/b/{bid}/p/{jid}", number=k + 1,
-                      count=len(sections))
-
-
-@route("POST", f"/b/{BATCH}/p/{PROJ}/i/{NODE}/repeat", name="flag item for a repeat")
-def repeat(ctx, bid, jid, nid):
-    bc, proj, vid = _ctx(ctx, bid, jid)
-    ctx.audit_batch, ctx.audit_target = bid, f"{proj['name']} {nid}"
-    if not vid:
-        raise UserError("This project has no runbook yet.")
-    on = ctx.form().get("on") == "1"
-    ctx.audit_detail = "on" if on else "off"
-    progress.set_repeat(bid, vid, nid, on, ctx.staff)
-    if ctx.req.wants_json():
-        return json_response({"ok": True, "repeat": on})
-    return ctx.redirect(ctx.form().get("back") if (ctx.form().get("back") or "").startswith("/b/")
-                        else f"/b/{bid}/p/{jid}/i/{nid}")
+                      count=len(sections), view_only=ctx.staff.is_super)
 
 
 # ================================================================== class recap
@@ -187,3 +188,72 @@ def tools(ctx, bid):
             mcq_problem = f"The test system is not answering ({e})."
     return ctx.render("tools.html", title=f"Tools · {bc['batch']['name']}", bc=bc, live=live, mcq=mcq,
                       mcq_problem=mcq_problem, base_url=ctx.req.base_url(), tab="tools")
+
+
+# ================================================================== teaching from the day's plan
+
+@route("GET", f"/b/{BATCH}/teach-today")
+def teach_today(ctx, bid):
+    """"Teach": today's planned session. Without a plan for today, the planner opens on today."""
+    from .. import planner
+    from .plans import plan_project
+    batch = perms.require_batch(ctx.staff, bid)
+    today = _ist_today()
+    if planner.get(bid, today)["entries"]:
+        return ctx.redirect(f"/b/{bid}/session?date={today}")
+    jid = plan_project(bid, batch)
+    if not jid:
+        return ctx.redirect(f"/b/{bid}", flash="This batch has no runbook yet.", kind="warn")
+    if ctx.staff.is_super:
+        return ctx.redirect(f"/b/{bid}/calendar", flash="There is no session plan for today.", kind="warn")
+    return ctx.redirect(f"/b/{bid}/p/{jid}/plan?date={today}",
+                        flash="There is no plan for today yet. Lay out today's session here, then press Teach.",
+                        kind="warn")
+
+
+@route("GET", f"/b/{BATCH}/session")
+def teach_session(ctx, bid):
+    """The day's plan in the class view: only the planned parts, in the planned order, each with Mark done."""
+    from .. import planner
+    batch = perms.require_batch(ctx.staff, bid)
+    bc = org.batch_context(bid)
+    ctx.set_batch_page(bc)
+    day = planner.check_date(ctx.req.query.get("date") or _ist_today())
+    plan = planner.get(bid, day)
+    cache, blocks, missing = {}, [], 0
+    for k, e in enumerate(plan["entries"], start=1):
+        if e.get("kind") == "text":
+            blocks.append({"kind": "text", "text": e["text"], "n": k})
+            continue
+        pid = e.get("proj")
+        if pid not in cache:
+            try:
+                proj = org.get_project(batch["prog_id"], pid)
+                vid = progress.batch_version(batch, proj)
+                cache[pid] = (proj, vid, progress.summary(bid, vid)) if vid else None
+            except Exception:  # noqa: BLE001  (a project removed since the plan was made is skipped)
+                cache[pid] = None
+        if not cache[pid]:
+            missing += 1
+            continue
+        proj, vid, summ = cache[pid]
+        node = summ["pub"]["index"].get(e["node"])
+        if not node:
+            missing += 1
+            continue
+        nodes = [node] if node.get("checkable") else progress.section_items(summ["pub"], node)
+        blocks.append({"kind": "head", "title": node["title"], "path": service.path_label(summ["pub"], node),
+                       "project": proj["name"], "n": k, "section": not node.get("checkable")})
+        for n in nodes:
+            blocks.append({"kind": "item", "node": n, "base": f"/b/{bid}/p/{pid}", "vid": vid,
+                           "done": n["id"] in summ["done_ids"],
+                           "tick": summ["ticks"].get(n["id"])})
+    items = [b for b in blocks if b["kind"] == "item"]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        bodies = list(pool.map(lambda b: service.item_html(b["vid"], b["node"]["id"]), items))
+    for b, body in zip(items, bodies):
+        b["html"] = body
+    from .plans import plan_project
+    return ctx.render("teach_session.html", title=f"Session · {bc['batch']['name']}", bc=bc, day=day, plan=plan,
+                      blocks=blocks, missing=missing, done_here=sum(1 for b in items if b["done"]), total=len(items),
+                      view_only=ctx.staff.is_super, jid=plan_project(bid, batch), today=_ist_today())

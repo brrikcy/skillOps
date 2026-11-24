@@ -44,5 +44,18 @@ env.filters["when"] = util.show_time
 env.filters["q"] = lambda v: quote(str(v), safe="")
 
 
+def day_name(value):
+    """'2026-11-10' -> 'Tue 10 Nov 2026' (a plain date, no time)."""
+    from datetime import date
+    try:
+        d = date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return str(value)
+    return f"{d.strftime('%a')} {d.day} {d.strftime('%b %Y')}"
+
+
+env.filters["day_name"] = day_name
+
+
 def render(name, **ctx):
     return env.get_template(name).render(**ctx)

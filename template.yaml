@@ -15,7 +15,7 @@ Parameters:
     Description: Name shown on every page ("by Robomy" is added beside it).
   LiveDataName:
     Type: String
-    Default: SkillOps Live Data
+    Default: Live Data Simulator
     Description: Name of the live-data module.
   SuperadminEmail:
     Type: String
@@ -157,7 +157,7 @@ Resources:
       SSESpecification: {SSEEnabled: true}
 
 
-  # ---- SkillOps Live Data (the live-data module) ----
+  # ---- Live Data Simulator (the live-data module) ----
   LiveRowsTable:          # every data row; partition = one dataset upload, sort = data time + row id
     Type: AWS::DynamoDB::Table
     Properties:
@@ -449,16 +449,18 @@ Resources:
   JobsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: Background jobs (export, runbook processing). Never called by a browser.
+      Description: Background jobs (export, runbook processing, loading Live Data Simulator files). Never called by a browser.
       Handler: jobs.handler
       Timeout: 900
-      MemorySize: 1024
+      MemorySize: 2048
+      EphemeralStorage: {Size: 4096}     # room in /tmp for an uploaded .db file (up to 400 MB) while it loads
       LoggingConfig: {LogGroup: !Ref JobsLogs}
       Policies:
         - DynamoDBCrudPolicy: {TableName: !Ref CoreTable}
         - DynamoDBCrudPolicy: {TableName: !Ref ProgressTable}
         - DynamoDBCrudPolicy: {TableName: !Ref AuditTable}
-        - DynamoDBReadPolicy: {TableName: !Ref LiveConfigTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveConfigTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref LiveRowsTable}
         - DynamoDBReadPolicy: {TableName: !Ref LiveStudentsTable}
         - DynamoDBReadPolicy: {TableName: !Ref LiveFetchLogTable}
         - S3CrudPolicy: {BucketName: !Ref RunbookBucket}
@@ -466,7 +468,7 @@ Resources:
   StudentApiFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: SkillOps Live Data student API (/v1/health, status, register, whoami, datasets, fetch)
+      Description: Live Data Simulator student API (/v1/health, status, register, whoami, datasets, fetch)
       Handler: student_api.handler
       LoggingConfig: {LogGroup: !Ref StudentApiLogs}
       Policies:

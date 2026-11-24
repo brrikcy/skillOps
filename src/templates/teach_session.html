@@ -1,0 +1,72 @@
+{% from "_ui.html" import icon %}<!doctype html>
+<html lang="en-IN"{% set _t = req.cookies.get("so_theme", "") if req else "" %}{% if _t in ("light", "dark") %} data-theme="{{ _t }}"{% endif %}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · {{ platform_name() }}</title>
+<link rel="stylesheet" href="{{ static('style.css') }}">
+<link rel="icon" href="{{ static('favicon.svg') }}" type="image/svg+xml">
+</head>
+<body class="teach-page">
+<header class="t-top">
+  <a class="t-back" href="/b/{{ bc.batch.id }}/today" title="Back to {{ bc.batch.name }}">{{ icon("i-left") }}<span>{{ bc.batch.name }}</span></a>
+  <div class="t-where">
+    <div class="t-path">Session plan{% if day == today %} · today{% endif %}{% if plan.by_name %} · planned by {{ plan.by_name }}{% endif %}{% if view_only %} <span class="badge grey">view only</span>{% endif %}</div>
+    <h1>{{ day|day_name }}</h1>
+  </div>
+  <div class="t-progress" title="{{ done_here }} of {{ total }} planned items are done">
+    <span data-done-count>{{ done_here }}</span>/<span>{{ total }}</span> done
+    <div class="bar teal"><span data-done-bar style="width:{{ (100 * done_here / (total or 1))|round|int }}%"></span></div>
+  </div>
+  <div class="t-tools">
+    <button class="theme-toggle" type="button" data-theme-toggle title="Light or dark" aria-label="Switch between light and dark">{{ icon("i-moon", "i-light") }}{{ icon("i-sun", "i-dark") }}</button>
+    <a class="btn sm" href="/b/{{ bc.batch.id }}/plan/pdf?date={{ day }}" download title="Download this plan as a PDF">{{ icon("i-download", "sm") }}PDF</a>
+    {% if jid %}<a class="btn sm" href="/b/{{ bc.batch.id }}/p/{{ jid }}/plan?date={{ day }}" data-popup>{{ icon("i-steps", "sm") }}{{ "See plan" if view_only else "Change plan" }}</a>
+    <a class="btn sm" href="/b/{{ bc.batch.id }}/p/{{ jid }}/read" data-popup>{{ icon("i-book", "sm") }}Runbook</a>{% endif %}
+    <button class="btn sm" type="button" data-size="-1" title="Smaller text" aria-label="Smaller text">A−</button>
+    <button class="btn sm" type="button" data-size="1" title="Larger text" aria-label="Larger text">A+</button>
+  </div>
+</header>
+
+<main class="t-cols" data-columns tabindex="0" aria-label="Today's session, in columns. Use the arrow keys to move.">
+  {% if plan.note %}<section class="t-intro"><p class="day-note">{{ plan.note }}</p></section>{% endif %}
+  {% if missing %}<section class="t-intro"><p class="day-note"><strong>{{ missing }} planned part{{ "" if missing == 1 else "s" }} {{ "is" if missing == 1 else "are" }} not in this batch's runbook any more</strong> and {{ "is" if missing == 1 else "are" }} left out here. Open the planner to take {{ "it" if missing == 1 else "them" }} out or pick another part.</p></section>{% endif %}
+  {% for b in blocks %}
+  {% if b.kind == "text" %}
+  <section class="t-act t-own"><div class="t-act-head"><span class="plan-n">{{ b.n }}</span><h2>{{ b.text }}</h2></div></section>
+  {% elif b.kind == "head" %}
+  <div class="t-plan-head"><span class="plan-n">{{ b.n }}</span><div><div class="muted small">{{ b.project }} · {{ b.path }}</div>{% if b.section %}<strong>{{ b.title }}</strong>{% endif %}</div></div>
+  {% else %}
+  {% set n = b.node %}{% set done = b.done %}{% set t = b.tick %}{% set base = b.base %}
+  <section class="t-act {% if done %}done{% endif %}" id="a-{{ n.id }}" style="--act:#{{ n.fill or '3b404a' }}">
+    <div class="t-act-head">
+      {% if n.label %}<span class="act-badge" style="background:#{{ n.fill or '3b404a' }}">{{ n.label }}</span>{% endif %}
+      <h2>{{ n.title }}</h2>
+      {% if not view_only %}<div class="t-act-btns">
+        <form method="post" action="{{ base }}/i/{{ n.id }}/{{ 'untick' if done else 'tick' }}" data-js="tick-inline"
+              data-tick="{{ base }}/i/{{ n.id }}/tick" data-untick="{{ base }}/i/{{ n.id }}/untick" class="inline">
+          {% include "_guard.html" %}
+          <button type="submit" class="t-check {% if done %}on{% endif %}" title="{% if done %}Done{% if t %} · {{ t.by_name }} · {{ t.at|when }}{% endif %} (click to un-mark){% else %}Mark done{% endif %}"
+                  aria-pressed="{{ 'true' if done else 'false' }}">{{ icon("i-check", "sm") }}<span>{{ "Done" if done else "Mark done" }}</span></button>
+        </form>
+      </div>{% elif done %}<span class="t-check on">{{ icon("i-check", "sm") }}<span>Done</span></span>{% endif %}
+    </div>
+    <div class="rb-content">{{ b.html|safe }}</div>
+  </section>
+  {% endif %}
+  {% else %}
+  <section class="t-end"><p><strong>Nothing is planned for {{ day|day_name }}.</strong></p>
+    {% if jid and not view_only %}<a class="btn primary" href="/b/{{ bc.batch.id }}/p/{{ jid }}/plan?date={{ day }}">Plan this session</a>{% endif %}</section>
+  {% endfor %}
+  {% if blocks %}
+  <section class="t-end">
+    <p class="muted">End of the plan for {{ day|day_name }}.</p>
+    <p class="small"><a href="/b/{{ bc.batch.id }}/recap?date={{ day }}">Class recap for this day</a></p>
+  </section>
+  {% endif %}
+</main>
+<div class="t-status" data-save-state aria-live="polite"></div>
+<div class="t-hint muted small">← → or Page Up / Page Down to move · Tab to the buttons</div>
+<script src="{{ static('app.js') }}" defer></script>
+</body>
+</html>

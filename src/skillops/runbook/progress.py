@@ -79,7 +79,7 @@ def untick(bid, vid, item_id, staff, project_id=""):
 
 
 def save_note(bid, vid, item_id, text, staff):
-    """The batch's note on an item (empty text clears it). The "needs a repeat" flag on the same item is kept."""
+    """The batch's note on an item (empty text clears it)."""
     text = (text or "").strip()
     if len(text) > 1000:
         raise UserError("The note is too long. Use at most 1,000 characters.")
@@ -88,20 +88,6 @@ def save_note(bid, vid, item_id, text, staff):
         UpdateExpression="SET #t = :t, #b = :b, by_name = :n, #a = :a, batch_id = :bid, version_id = :vid, item_id = :iid",
         ExpressionAttributeNames={"#t": "text", "#b": "by", "#a": "at"},
         ExpressionAttributeValues={":t": text, ":b": staff.email, ":n": staff.name, ":a": util.now_iso(),
-                                   ":bid": bid, ":vid": vid, ":iid": item_id})
-
-
-def set_repeat(bid, vid, item_id, on, staff):
-    """Flag an item as "needs a repeat" for this batch (or clear the flag). Setting it twice is harmless."""
-    pub = service.published(vid)
-    if item_id not in pub["index"] or not pub["index"][item_id].get("checkable"):
-        raise NotFound("This item cannot be flagged.", "Refresh the page.")
-    store.t("PROGRESS").update_item(
-        Key={"pk": _pk(bid, vid), "sk": f"N#{item_id}"},
-        UpdateExpression="SET #r = :r, repeat_by = :b, repeat_by_name = :n, repeat_at = :a, "
-                         "batch_id = :bid, version_id = :vid, item_id = :iid",
-        ExpressionAttributeNames={"#r": "repeat"},
-        ExpressionAttributeValues={":r": bool(on), ":b": staff.email, ":n": staff.name, ":a": util.now_iso(),
                                    ":bid": bid, ":vid": vid, ":iid": item_id})
 
 
@@ -199,17 +185,9 @@ def summary(bid, vid):
     for n in checkables:
         if n["id"] in done_ids:
             furthest = n
-    skipped = []
-    if furthest:
-        for n in checkables:
-            if n["id"] == furthest["id"]:
-                break
-            if n["id"] not in done_ids:
-                skipped.append(n)
     last = max(done.values(), key=lambda t: t["at"]) if done else None
     first_open = next((n for n in checkables if n["id"] not in done_ids), None)
-    # Where the class really is: the first open item AFTER the furthest tick (a skipped item is a gap,
-    # listed separately, not the place to continue from).
+    # Where the class really is: the first open item AFTER the furthest tick.
     next_up = first_open
     if furthest:
         k = next(i for i, n in enumerate(checkables) if n["id"] == furthest["id"])
@@ -221,14 +199,10 @@ def summary(bid, vid):
         if c[1] and c[0] >= c[1]:
             ats = [done[x["id"]]["at"] for x in checkables if x["id"] in done and _under(pub, x, top["id"])]
             step_done_at[top["id"]] = max(ats) if ats else ""
-    flags = notes(bid, vid)
-    repeats = [pub["index"][i] for i, n in flags.items() if n.get("repeat") and i in pub["index"]]
-    repeats.sort(key=lambda n: pub["order"][n["id"]])
     return {"total": total, "done": len(done_ids), "per": per, "done_ids": done_ids, "ticks": done,
             "position": service.path_label(pub, furthest) if furthest else "",
-            "furthest": furthest, "skipped": skipped, "last": last, "first_open": first_open, "pub": pub,
-            "next_up": next_up, "step_done_at": step_done_at, "repeats": repeats, "flags": flags,
-            "repeat_ids": {n["id"] for n in repeats},
+            "furthest": furthest, "last": last, "first_open": first_open, "pub": pub,
+            "next_up": next_up, "step_done_at": step_done_at,
             "steps": [(n, per.get(n["id"], [0, 0])) for n in pub["nodes"] if n["level"] == 1]}
 
 

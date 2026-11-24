@@ -1,21 +1,55 @@
 {% extends "base.html" %}
-{% from "_ui.html" import icon, bar, empty %}
+{% from "_ui.html" import icon %}
+{% import "_segbar.html" as sb %}
 {% block content %}
-<div class="page-head"><div><h1>My batches</h1><p class="sub">Pick up where each batch stopped.</p></div></div>
-{% if not count %}
-<div class="card">{{ empty("i-users", "No batch is linked to your account yet", "Ask your supervisor to link you to your batches, then refresh this page.") }}</div>
-{% endif %}
-<div class="tiles">
-{% for r in rows %}{% set cur = r.current %}{% set s = cur.s if cur else none %}
-  <a class="tile" href="/b/{{ r.batch.id }}">
-    <div class="small muted">{{ r.institution.name }} · {{ r.programme.name }}</div>
-    <div class="tile-title" style="font-size:1.1rem">{{ icon("i-users") }}{{ r.batch.name }}</div>
-    {% if s %}
-      <div class="small">{{ cur.project.name }}{% if s.position %} · <strong>{{ s.position }}</strong>{% else %} · not started{% endif %}</div>
-      {{ bar(s.done, s.total, teal=True) }}
-    {% else %}<div class="small muted">No runbook in use yet</div>{% endif %}
-    <div class="small muted">{% if r.live_known %}{{ r.live.registered }} on live data{% endif %}{% if r.mcq_known and r.mcq and r.mcq.open %} · open test: {{ r.mcq.open[0].id }}{% endif %}</div>
-  </a>
-{% endfor %}
+{% if not cards %}
+<div class="empty-page">
+  <h1>No batches yet</h1>
+  <p class="muted">You have not been given a batch. Ask your supervisor to add you to one; it will show in the bar above.</p>
 </div>
+{% else %}
+
+{% for c in cards %}
+<div class="card prog-card">
+  <div class="prog-head">
+    <div><div class="eyebrow">{{ c.institution.name }}</div><h2>{{ c.programme.name }}</h2>
+      <div class="muted small">{{ c.batches|length }} batch{{ "" if c.batches|length == 1 else "es" }} of yours · {{ c.projects|length }} project{{ "" if c.projects|length == 1 else "s" }}</div></div>
+    <a class="small prog-link" href="/team">{{ icon("i-pulse", "sm") }}Compare with the team</a>
+  </div>
+  {{ sb.legend(c.shown, c.before, c.after) }}
+  {% for b in c.batches %}{% set td = b.today %}{% set bid = b.batch.id %}
+  <div class="batch-line">
+    <div class="batch-who">
+      <a href="/b/{{ bid }}"><strong>{{ b.batch.name }}</strong></a>
+      {% for t in b.trainers %}<div class="small muted">{{ t.name }}</div>{% endfor %}
+    </div>
+    <div class="batch-bar">
+      {{ sb.bar(b.segments, b.batch.name) }}
+      <div class="batch-now small muted">{% if b.now %}Now: <strong>{{ b.now }}</strong>{% if b.cur_total %} · {{ b.cur_done }} / {{ b.cur_total }} items{% endif %}{% if b.position %} · furthest item {{ b.position }}{% endif %}{% else %}Not started{% endif %}</div>
+    </div>
+    <div class="batch-overall">
+      <span class="overall-num">{{ b.overall }}%</span>
+      <span class="small muted">{{ b.finished }}/{{ b.project_total }} projects</span>
+    </div>
+    {# today's session for this batch, with the one button that matters #}
+    <div class="today-strip {% if td.planned %}is-planned{% elif td.class_today %}is-open{% endif %}">
+      <span class="today-ico">{{ icon("i-play" if td.planned else "i-clock", "sm") }}</span>
+      <span class="today-text">
+        {% if td.planned %}<strong>Today: {{ td.planned }} part{{ "" if td.planned == 1 else "s" }} planned</strong>
+          {% set first = td.session.entries[0] %}<span class="muted"> · starts with {{ first.text if first.kind == "text" else first.title }}</span>
+        {% elif td.class_today %}<strong>Class today</strong><span class="muted"> · the session is not planned yet</span>
+        {% elif td.class_today is false %}No class today{% if td.next_day %}<span class="muted"> · next class {{ td.next_day|day_name }}</span>{% endif %}
+        {% else %}<span class="muted">Class days are not set yet</span>{% endif %}
+      </span>
+      <span class="today-actions">
+        {% if td.planned %}<a class="btn sm primary" href="/b/{{ bid }}/session?date={{ today }}">{{ icon("i-play", "sm") }}Teach</a>
+        {% elif td.plan_project %}<a class="btn sm {% if td.class_today %}primary{% endif %}" href="/b/{{ bid }}/p/{{ td.plan_project }}/plan?date={{ today }}" data-popup>{{ icon("i-steps", "sm") }}Plan today</a>{% endif %}
+        <a class="btn sm ghost" href="/b/{{ bid }}">Open batch</a>
+      </span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+{% endif %}
 {% endblock %}

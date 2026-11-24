@@ -1,21 +1,29 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon, empty %}
 {% block content %}
-<div class="page-head"><div><h1>Trainers</h1><p class="sub">Accounts, and the batches each trainer teaches.</p></div></div>
+<div class="page-head"><div><h1>Trainers</h1><p class="sub">Every trainer, and the institutions they work with. Add a trainer to an institution to link them to its batches.</p></div></div>
+{% if insts %}
+<div class="filter-pills" role="tablist" aria-label="Institution">
+  <a href="/admin/trainers" class="{% if show == 'all' %}on{% endif %}">All <span class="muted">{{ total }}</span></a>
+  {% for i in insts %}<a href="/admin/trainers?inst={{ i.id }}" class="{% if show == i.id %}on{% endif %}">{{ i.name }} <span class="muted">{{ counts[i.id] }}</span></a>{% endfor %}
+  {% if unplaced %}<a href="/admin/trainers?inst=none" class="{% if show == 'none' %}on{% endif %}">In no institution <span class="muted">{{ unplaced }}</span></a>{% endif %}
+</div>
+{% endif %}
 <div class="grid side-main">
   <div class="card flush">
-    {% if items %}
+    {% if trainers %}
     <div class="table-wrap"><table class="table">
-      <thead><tr><th>Trainer</th><th>Batches</th><th>Account</th></tr></thead>
+      <thead><tr><th>Trainer</th><th>Institutions</th><th>Batches</th><th>Account</th></tr></thead>
       <tbody>
-      {% for t in items %}
-      <tr><td><a href="/admin/trainers/{{ t.email|q }}"><strong>{{ t.name }}</strong></a><div class="muted small">{{ t.email }}</div></td>
-        <td class="small">{% for n in t.batch_names %}<span class="badge">{{ n }}</span> {% else %}<span class="muted">none</span>{% endfor %}</td>
-        <td>{% if t.enabled %}<span class="badge teal">on</span>{% else %}<span class="badge grey">turned off</span>{% endif %}</td></tr>
+      {% for t in trainers %}
+      <tr class="{% if not t.enabled %}row-archived{% endif %}"><td><a href="/admin/trainers/{{ t.email|q }}"><strong>{{ t.name }}</strong></a><div class="muted small">{{ t.email }}</div></td>
+        <td class="small">{% for i in t.institutions %}<span class="badge">{{ i.name }}</span> {% else %}<span class="muted">none yet</span>{% endfor %}</td>
+        <td class="small">{% for b in t.batches %}{{ b.name }}{% if not loop.last %}, {% endif %}{% else %}<span class="muted">none</span>{% endfor %}</td>
+        <td>{% if t.enabled %}<span class="badge teal">on</span>{% else %}<span class="badge archived">turned off</span>{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table></div>
-    {% else %}{{ empty("i-user", "No trainers yet") }}{% endif %}
+    {% else %}{{ empty("i-user", "No trainers here yet") }}{% endif %}
   </div>
   <div class="card">
     <div class="card-head"><h2>Add a trainer</h2></div>
@@ -23,6 +31,7 @@
       <form method="post" action="/admin/trainers">{% include "_guard.html" %}
         <label>Name<input name="name" required maxlength="80"></label>
         <label>Email<input type="email" name="email" required maxlength="120"></label>
+        <label>Add to an institution <span class="muted">(optional)</span><select name="inst_id"><option value="">Not yet</option>{% for i in insts %}<option value="{{ i.id }}" {% if show == i.id %}selected{% endif %}>{{ i.name }}</option>{% endfor %}</select></label>
         <button class="btn primary" type="submit">{{ icon("i-plus") }}Add trainer</button>
       </form>
       <p class="muted small" style="margin-top:10px">Cognito emails a temporary password. Send them this address: <code>{{ web_address }}</code></p>

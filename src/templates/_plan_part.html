@@ -1,0 +1,39 @@
+{% from "_ui.html" import icon %}{% set p = part %}{% set s = p.section %}
+<div class="pv-part" data-part="{{ s.id }}" data-prev="{{ p.prev_s.id if p.prev_s else '' }}" data-next="{{ p.next_s.id if p.next_s else '' }}">
+  <article class="sheet sec-{{ 'a' if p.number is odd else 'b' }}">
+    <header class="sheet-head {% if not view_only %}src{% endif %}" {% if not view_only %}draggable="true"{% endif %}
+            data-src data-proj="{{ p.jid }}" data-node="{{ s.id }}" data-title="{{ s.title }}" data-label="{{ s.label or '' }}"
+            data-fill="{{ s.fill or '' }}" data-path="{{ p.path }}">
+      <div class="sheet-path">{{ p.path }} · section {{ p.number }} of {{ p.count }}</div>
+      <h2>{{ s.title }}</h2>
+      {% if not view_only %}<form method="post" action="/b/{{ p.bid }}/plan" class="src-add" data-plan-add>{% include "_guard.html" %}
+        <input type="hidden" name="action" value="add"><input type="hidden" name="proj" value="{{ p.jid }}"><input type="hidden" name="node" value="{{ s.id }}">
+        <input type="hidden" name="date" value="{{ day }}"><input type="hidden" name="rev" value="{{ plan.rev if plan else 0 }}">
+        <button class="btn sm" type="submit" title="Add the whole section to the plan">{{ icon("i-plus", "sm") }}Whole section</button></form>{% endif %}
+    </header>
+    {% if p.intro and p.intro|striptags|trim %}<div class="rb-content">{{ p.intro|safe }}</div>{% endif %}
+    {% for n, html_body in p.acts %}
+    <section class="sheet-act sub-{{ 'a' if loop.index is odd else 'b' }} {% if not view_only %}src{% endif %} {% if n.id in p.done_ids %}done{% endif %}" {% if not view_only %}draggable="true"{% endif %}
+             data-src data-proj="{{ p.jid }}" data-node="{{ n.id }}" data-title="{{ n.title }}" data-label="{{ n.label or '' }}"
+             data-fill="{{ n.fill or '' }}" data-path="{{ p.path }}">
+      <div class="sheet-act-head">
+        {% if not view_only %}<span class="grip" aria-hidden="true">⋮⋮</span>{% endif %}
+        {% if n.label %}<span class="act-badge" style="background:#{{ n.fill or '3b404a' }}">{{ n.label }}</span>{% endif %}
+        <h3>{{ n.title }}</h3>
+        {% if n.id in p.done_ids %}<span class="badge teal">done</span>{% endif %}
+        <span class="in-plan-mark" hidden>✓ in plan</span>
+        {% if not view_only %}<form method="post" action="/b/{{ p.bid }}/plan" class="src-add" data-plan-add>{% include "_guard.html" %}
+          <input type="hidden" name="action" value="add"><input type="hidden" name="proj" value="{{ p.jid }}"><input type="hidden" name="node" value="{{ n.id }}">
+          <input type="hidden" name="date" value="{{ day }}"><input type="hidden" name="rev" value="{{ plan.rev if plan else 0 }}">
+          <button class="btn sm ghost" type="submit" title="Add to the plan" aria-label="Add {{ n.title }} to the plan">{{ icon("i-plus", "sm") }}</button></form>{% endif %}
+      </div>
+      <div class="rb-content">{{ html_body|safe }}</div>
+    </section>
+    {% endfor %}
+  </article>
+  <div class="pv-turn">
+    {% set q = ("date=" ~ day ~ "&") if mode != "read" else "" %}
+    {% if p.prev_s %}<a class="btn" href="?{{ q }}part={{ p.prev_s.id }}" data-goto="{{ p.prev_s.id }}">{{ icon("i-left", "sm") }}<span><small class="muted">Previous</small><br>{{ p.prev_s.title }}</span></a>{% else %}<span></span>{% endif %}
+    {% if p.next_s %}<a class="btn primary" href="?{{ q }}part={{ p.next_s.id }}" data-goto="{{ p.next_s.id }}"><span><small>Next</small><br>{{ p.next_s.title }}</span> {{ icon("i-right", "sm") }}</a>{% endif %}
+  </div>
+</div>

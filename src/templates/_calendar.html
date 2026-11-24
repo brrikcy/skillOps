@@ -1,0 +1,32 @@
+{# A month of the batch's calendar. cal = calendar_view(...); bid = the batch; nav_base = where the month arrows go. #}
+{% macro month_card(cal, bid, nav_base, compact=False) %}
+{% set m = cal.month %}
+<div class="cal {% if compact %}compact{% endif %}">
+  <div class="cal-head">
+    <a class="btn sm ghost" href="{{ nav_base }}?m={{ m.prev }}" aria-label="Previous month">‹</a>
+    <strong>{{ m.title }}</strong>
+    <a class="btn sm ghost" href="{{ nav_base }}?m={{ m.next }}" aria-label="Next month">›</a>
+  </div>
+  <table class="cal-grid" role="grid">
+    <thead><tr>{% for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}<th scope="col">{{ d }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for week in m.weeks %}<tr>
+      {% for c in week %}
+      {% if not c %}<td class="out"></td>
+      {% elif c.class_day %}
+      <td class="class {% if c.planned %}planned{% elif not c.past %}unplanned{% endif %} {% if c.today %}today{% endif %} {% if c.past %}past{% endif %}">
+        <a href="/b/{{ bid }}/p/{{ cal.project }}/plan?date={{ c.date }}" title="{{ c.date|day_name }} · class day · {% if c.planned %}{{ c.planned }} planned{% else %}no plan yet{% endif %}">
+          <span class="n">{{ c.day }}</span>
+          <span class="mark">{% if c.planned %}✓ {{ c.planned }}{% elif not c.past %}plan{% endif %}</span>
+        </a>
+      </td>
+      {% else %}<td class="{% if c.today %}today{% endif %}"><span class="n">{{ c.day }}</span></td>{% endif %}
+      {% endfor %}
+    </tr>{% endfor %}
+    </tbody>
+  </table>
+  <div class="cal-key small muted">
+    <span><i class="k class"></i>class day</span><span><i class="k planned"></i>planned</span><span><i class="k unplanned"></i>no plan yet</span>
+  </div>
+</div>
+{% endmacro %}

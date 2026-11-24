@@ -1,78 +1,61 @@
 {% extends "base.html" %}
-{% from "_ui.html" import icon, bar, empty %}
+{% from "_ui.html" import icon, empty %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Dashboard</h1><p class="sub">Where every class is, counted from the ticks. Position and completion only.</p></div>
-  <div class="actions"><a class="btn" href="/dashboard?{{ query }}{% if query %}&amp;{% endif %}format=csv">{{ icon("i-download") }}CSV</a></div>
+  <div><h1>Dashboard</h1></div>
+  <div class="actions">
+    {% if not empty_org %}<a class="btn" href="/dashboard?format=csv">{{ icon("i-download") }}CSV</a>{% endif %}
+  </div>
 </div>
 
 {% if empty_org and staff.is_super %}
-<div class="card">{{ empty("i-building", "Nothing is set up yet", "Add the first institution, or import everything from one CSV file.") }}
-  <div class="btn-row" style="justify-content:center;padding-bottom:24px"><a class="btn primary" href="/admin/institutions">{{ icon("i-plus") }}Add an institution</a><a class="btn" href="/admin/import">{{ icon("i-upload") }}Import from CSV</a></div></div>
+<div class="card">{{ empty("i-building", "Nothing is set up yet", "Add institutions, programmes and batches in Settings (profile menu).") }}
+  <div class="btn-row" style="justify-content:center;padding-bottom:24px"><a class="btn primary" href="/settings" data-settings-open>{{ icon("i-settings") }}Set up in Settings</a></div></div>
 {% else %}
-<form method="get" action="/dashboard" class="card" style="padding:12px 16px">
-  <div class="form-row">
-    <label>Institution<select name="institution"><option value="all">All institutions</option>{% for i in insts %}<option value="{{ i.id }}" {% if sel_inst == i.id %}selected{% endif %}>{{ i.name }}</option>{% endfor %}</select></label>
-    <label>Programme<select name="programme"><option value="all">All programmes</option>{% for p in progs %}<option value="{{ p.id }}" {% if sel_prog == p.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></label>
-    <button class="btn" type="submit">Show</button>
+
+{% for c in cards %}
+<div class="card prog-card">
+  <div class="prog-head">
+    <div><div class="eyebrow">{{ c.institution.name }}</div><h2>{{ c.programme.name }}</h2>
+      <div class="muted small">{{ c.batches|length }} batch{{ "" if c.batches|length == 1 else "es" }} · {{ c.projects|length }} project{{ "" if c.projects|length == 1 else "s" }}</div></div>
+    <div class="prog-avg"><span class="prog-avg-num">{{ c.avg }}%</span><span class="muted small">average</span></div>
   </div>
-</form>
 
-<div class="stats">
-  <div class="stat"><div class="label">{{ icon("i-users", "sm") }}Batches</div><div class="value">{{ totals.batches }}</div><div class="foot">{{ totals.trainers }} trainer(s)</div></div>
-  <div class="stat"><div class="label">{{ icon("i-check", "sm") }}Delivered in the last 7 days</div><div class="value">{{ hl.activity|sum(attribute="delivered") }}</div><div class="foot">items marked done</div></div>
-  <div class="stat"><div class="label">{{ icon("i-steps", "sm") }}Milestones in 14 days</div><div class="value">{{ hl.milestones|length }}</div><div class="foot">steps or projects finished</div></div>
-  <div class="stat"><div class="label">{{ icon("i-db", "sm") }}Students on live data</div><div class="value">{{ totals.live }}</div><div class="foot">registered</div></div>
-</div>
+  {% if c.shown %}
+  <div class="seg-legend">
+    <span class="seg-side">{% if c.before %}<span class="seg-fold" title="Projects before these">{{ icon("i-check", "sm") }}{{ c.before }} earlier</span>{% endif %}</span>
+    <div class="seg-names" style="--n:{{ c.shown|length }}">{% for x in c.shown %}<span title="{{ x.project.name }}"><b>{{ x.n }}</b> {{ x.project.name }}</span>{% endfor %}</div>
+    <span class="seg-side seg-side-r">{% if c.after %}<span class="seg-fold" title="Projects after these">+{{ c.after }} more</span>{% endif %}</span>
+  </div>
+  {% endif %}
 
-<div class="grid two">
-  <div class="card">
-    <div class="card-head"><h2>{{ icon("i-steps") }} Milestones</h2><span class="muted small">last 14 days</span></div>
-    <div class="card-body">
-      {% for m in hl.milestones %}
-      <div class="highlight">{{ icon("i-check") }}<div><strong>{{ m.batch.name }}</strong> finished {% if m.kind == "project" %}the <strong>{{ m.title }}</strong> project{% else %}<strong>{{ m.title }}</strong> <span class="muted">({{ m.project.name }})</span>{% endif %}<div class="muted small">{{ m.at|when }}</div></div></div>
-      {% else %}<p class="muted small">No step or project was finished in the last 14 days. Finished steps appear here.</p>{% endfor %}
+  {% for b in c.batches %}
+  <div class="batch-line">
+    <div class="batch-who">
+      <a href="/b/{{ b.batch.id }}"><strong>{{ b.batch.name }}</strong></a>
+      {% for t in b.trainers %}<div class="small muted">{{ t.name }}</div>{% else %}<div class="small muted">no trainer</div>{% endfor %}
+    </div>
+    <div class="batch-bar">
+      {% if b.segments %}
+      <div class="seg-bar" style="--n:{{ b.segments|length }}" role="img" aria-label="{{ b.batch.name }}: {% for x in b.segments %}{{ x.project.name }} {{ x.pct }}%{% if not loop.last %}, {% endif %}{% endfor %}">
+        {% for x in b.segments %}
+        <div class="seg{% if x.pct >= 100 %} full{% elif x.pct >= 70 %} high{% elif x.pct == 0 %} zero{% endif %}" title="{{ x.project.name }}: {{ x.pct }}%">
+          <span class="seg-fill" style="width:{{ x.pct }}%"></span><span class="seg-pct">{{ x.pct }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="muted small">No projects in this programme yet.</div>{% endif %}
+      <div class="batch-now small muted">{% if b.now %}Now: <strong>{{ b.now }}</strong>{% if b.cur_total %} · {{ b.cur_done }} / {{ b.cur_total }} items{% endif %}{% if b.position %} · furthest item {{ b.position }}{% endif %}{% else %}Not started{% endif %}</div>
+    </div>
+    <div class="batch-overall">
+      <span class="overall-num">{{ b.overall }}%</span>
+      <span class="small muted">{{ b.finished }}/{{ b.project_total }} projects</span>
     </div>
   </div>
-  <div class="card">
-    <div class="card-head"><h2>{{ icon("i-user") }} Trainer activity</h2><span class="muted small">last 7 days</span></div>
-    {% if hl.activity %}
-    <div class="table-wrap"><table class="table small">
-      <thead><tr><th>Trainer</th><th>Batches</th><th class="num">Items delivered</th><th>Last active</th></tr></thead>
-      <tbody>{% for a in hl.activity %}<tr><td><strong>{{ a.name }}</strong></td><td>{{ a.batches|join(", ") }}</td><td class="num">{{ a.delivered }}</td><td class="nowrap">{{ a.last|when }}</td></tr>{% endfor %}</tbody>
-    </table></div>
-    {% else %}<div class="card-body muted small">Nothing marked done in the last 7 days.</div>{% endif %}
-  </div>
+  {% endfor %}
 </div>
-
-<div class="card flush">
-  <div class="card-head"><h2>All classes</h2><span class="muted small">{{ rows|length }} batch(es)</span></div>
-  {% if rows %}
-  <div class="table-wrap"><table class="table">
-    <thead><tr><th>Batch</th><th>Current project</th><th>Position</th><th style="min-width:150px">Project completion</th><th>Programme</th><th>Last marked</th><th>Live data</th><th>MCQ</th></tr></thead>
-    <tbody>
-    {% for r in rows %}{% set cur = r.current %}{% set s = cur.s if cur else none %}
-    <tr>
-      <td><a href="/dashboard/b/{{ r.batch.id }}"><strong>{{ r.batch.name }}</strong></a>
-        <div class="muted small">{{ r.programme.name }}</div>
-        <div class="small">{% for t in r.trainers %}{{ t.name }}{% if not loop.last %}, {% endif %}{% else %}<span class="muted">no trainer</span>{% endfor %}</div></td>
-      <td>{% if cur %}{{ cur.project.name }}{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td>{% if s and s.position %}<strong>{{ s.position }}</strong>{% elif s %}<span class="muted small">not started</span>{% else %}<span class="muted small">no runbook</span>{% endif %}
-        {% if r.revisit %}<div><span class="badge warn" title="Items flagged: needs a repeat">{{ r.revisit }} to revisit</span></div>{% endif %}</td>
-      <td>{% if s %}{{ bar(s.done, s.total) }}<div class="muted small">{{ s.done }} / {{ s.total }}</div>
-        {% if s.steps %}<div class="strip" title="Each cell is one {{ s.pub.level_names[0]|lower }}" style="margin-top:6px">{% for n, c in s.steps %}<span title="{{ n.short }}: {{ c[0] }} / {{ c[1] }}"><i style="width:{{ pct(c[0], c[1]) }}%"></i></span>{% endfor %}</div>{% endif %}
-        {% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="nowrap">{{ r.finished }} / {{ r.project_total }} <span class="muted small">projects</span></td>
-      <td class="small">{% if r.last %}{{ r.last.at|when }}<div class="muted">{{ r.last.by_name }}</div>{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="small">{% if r.live_known %}{{ r.live.registered }} registered<div class="muted">{{ r.live.fetched }} fetched</div>{% else %}<span class="muted">not available</span>{% endif %}</td>
-      <td class="small">{% if r.mcq_known and r.mcq %}{{ r.mcq.tests|sum(attribute="written") }} attempts<div class="muted">{% if r.mcq.latest %}{{ r.mcq.latest.id }}: {{ r.mcq.latest.average }}%{% else %}no results{% endif %}</div>{% else %}<span class="muted">not available</span>{% endif %}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table></div>
-  {% else %}
-  {{ empty("i-users", "No batches here", "Choose another institution or programme.") }}
-  {% endif %}
-</div>
+{% else %}
+<div class="card">{{ empty("i-users", "No active batches", "Batches are added in Settings › Institutions.") }}</div>
+{% endfor %}
 {% endif %}
 {% endblock %}

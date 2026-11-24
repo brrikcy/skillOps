@@ -2,7 +2,7 @@
 {% from "_ui.html" import icon, empty %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Audit log</h1><p class="sub">Every change and every sign-in: who, role, action, batch, target, result. Newest first, India time.</p></div>
+  <div><h1>Audit log</h1></div>
   <div class="actions"><a class="btn" href="/admin/audit?{{ query }}{% if query %}&amp;{% endif %}format=csv">{{ icon("i-download") }}CSV</a></div>
 </div>
 <form method="get" action="/admin/audit" class="card" style="padding:12px 16px">

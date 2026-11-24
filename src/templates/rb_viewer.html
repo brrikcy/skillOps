@@ -1,0 +1,90 @@
+{% from "_ui.html" import icon %}<!doctype html>
+<html lang="en-IN"{% set _t = req.cookies.get("so_theme", "") if req else "" %}{% if _t in ("light", "dark") %} data-theme="{{ _t }}"{% endif %}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · {{ platform_name() }}</title>
+<link rel="stylesheet" href="{{ static('style.css') }}">
+<link rel="icon" href="{{ static('favicon.svg') }}" type="image/svg+xml">
+</head>
+<body class="plan-page rbv-page">
+<header class="t-top">
+  <a class="t-back" href="{{ back }}" title="Close the runbook" data-close-popup>{{ icon("i-left") }}<span>Close</span></a>
+  <div class="t-where">
+    <div class="t-path">{{ subtitle }}</div>
+    <h1>{{ heading }}</h1>
+  </div>
+  <div class="t-tools">
+    <button class="theme-toggle" type="button" data-theme-toggle title="Light or dark" aria-label="Switch between light and dark">{{ icon("i-moon", "i-light") }}{{ icon("i-sun", "i-dark") }}</button>
+    <a class="btn sm" href="{{ pdf_url }}" target="_blank" rel="noopener" title="Open the PDF in its own browser tab">{{ icon("i-book", "sm") }}Open PDF</a>
+    <a class="btn sm" href="{{ pdf_url }}?download=1" download="{{ file_name }}" title="Download the runbook as a PDF">{{ icon("i-download", "sm") }}Download</a>
+  </div>
+</header>
+
+<div class="planner mode-read rbv" data-rbv data-pdf="{{ pdf_url }}" data-csrf="{{ csrf }}" data-tick="{{ tick_base if can_tick else '' }}">
+  <nav class="rv-nav" aria-label="Sections of the runbook" data-nav>
+    <div class="rv-nav-head"><strong>Sections</strong><button class="btn sm ghost" type="button" data-nav-toggle aria-label="Hide the sections" title="Hide the sections">«</button></div>
+    <a class="rv-skip" href="#rbv-frame" data-skip>Skip to the runbook</a>
+    <div class="rv-tools">
+      <label class="sr" for="rv-filter">Find a section or part</label>
+      <input id="rv-filter" type="search" placeholder="Find a section or part" autocomplete="off" data-nav-filter>
+      <div class="rv-tool-btns">
+        <button type="button" class="btn sm ghost" data-nav-collapse title="Fold every section in the list">Fold all</button>
+        <button type="button" class="btn sm ghost" data-nav-expand title="Open every section of the open step">Open step</button>
+      </div>
+    </div>
+    {% if bc %}
+    <div class="rv-total" title="Marked done in class so far">
+      <div class="rv-total-line"><strong data-total-text>{{ summ.done }}/{{ summ.total }}</strong><span class="muted">done so far</span></div>
+      <div class="rv-bar"><span data-total-bar style="width:{{ (100 * summ.done / summ.total)|round|int if summ.total else 0 }}%"></span></div>
+    </div>
+    {% endif %}
+    <div class="rv-nav-list">
+      <p class="rv-nofind muted small" hidden data-nofind>Nothing matches.</p>
+      {% for g in groups %}{% set gc = summ.per.get(g.top.id, [0, 0]) %}{% set gpage = pg.get(g.top.id) %}
+      <details class="rv-group {% if gc[1] and gc[0] >= gc[1] %}done{% endif %}" data-i="{{ loop.index0 }}">
+        <summary data-page="{{ gpage or '' }}" data-top="{{ pt.get(g.top.id, 0) }}"><span class="rv-group-title">{{ g.top.title }}</span>{% if bc %}<span class="rv-count" data-count>{{ gc[0] }}/{{ gc[1] }}</span>{% endif %}</summary>
+        {% for s in g.sections %}{% set c = summ.per.get(s.id, [0, 0]) %}{% set kids = subs.get(s.id, []) %}{% set spage = pg.get(s.id) %}
+        <div class="rv-sec {{ 'sa' if secno[s.id] is odd else 'sb' }}{% if c[1] and c[0] >= c[1] %} done{% endif %}" data-sec="{{ s.id }}">
+          <div class="rv-sec-row">
+            <button class="rv-caret" type="button" data-toggle-subs aria-expanded="false" aria-label="Show or hide the parts of {{ s.title }}" {% if kids|length < 2 %}hidden{% endif %}>▸</button>
+            <a href="{{ pdf_url }}#page={{ spage or 1 }}" data-page="{{ spage or '' }}" data-top="{{ pt.get(s.id, 0) }}" data-label="{{ secpath[s.id] }}" {% if not spage %}aria-disabled="true" title="Not found in the PDF"{% endif %}>
+              <span class="rv-sec-title"><span class="rv-tick" aria-label="Completed" {% if not (c[1] and c[0] >= c[1]) %}hidden{% endif %}>&#10003;</span>{{ s.title }}</span>
+              {% if bc %}<span class="rv-count" data-count>{{ c[0] }}/{{ c[1] }}</span>{% endif %}
+              <span class="rv-pg" title="Page in the PDF">{% if spage %}p. {{ spage }}{% endif %}</span>
+            </a>
+          </div>
+          <div class="rv-subs" {% if kids|length > 1 %}hidden{% endif %}>
+            {% for x in kids %}{% set xp = pg.get(x.id) %}
+            <div class="rv-sub-row {{ 'ta' if loop.index is odd else 'tb' }}" data-act="{{ x.id }}">
+              <a class="rv-sub{% if x.done %} done{% endif %}" href="{{ pdf_url }}#page={{ xp or spage or 1 }}" data-page="{{ xp or '' }}" data-top="{{ pt.get(x.id, 0) }}" data-label="{{ secpath[s.id] }} · {{ x.title }}" title="{{ x.title }}" {% if not xp %}aria-disabled="true"{% endif %}>
+                {% if x.fill %}<span class="rv-dot" style="background:#{{ x.fill }}"></span>{% endif %}<span class="rv-sub-title">{% if x.label %}<b>{{ x.label }}</b> {% endif %}{{ x.title }}</span>
+                <span class="rv-pg">{% if xp %}p. {{ xp }}{% endif %}</span>
+              </a>
+              {% if can_tick %}<button class="rv-check{% if x.done %} on{% endif %}" type="button" data-check="{{ x.id }}" aria-pressed="{{ 'true' if x.done else 'false' }}" title="{{ 'Done (press to un-mark)' if x.done else 'Mark done' }}" aria-label="Mark {{ x.title }} done">&#10003;</button>
+              {% elif x.done %}<span class="rv-check on static" title="Done">&#10003;</span>{% endif %}
+            </div>{% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </details>
+      {% endfor %}
+    </div>
+  </nav>
+
+  <section class="pv" aria-label="Runbook">
+    <div class="pv-bar">
+      <button class="rv-nav-open btn sm" type="button" data-nav-toggle aria-label="Show the sections" title="Show the sections">» Sections</button>
+      <span class="pv-here" data-here>{{ pages }} pages</span>
+      <span class="pv-hint" data-state aria-live="polite">Scroll down to read. Pick a section on the left to jump to it.</span>
+    </div>
+    <div class="rbv-stage" data-stage>
+      <iframe class="rbv-frame" id="rbv-frame" data-frame title="{{ heading }} (PDF)" src="{{ pdf_url }}#page={{ start }}&amp;view=FitH,{{ start_top }}&amp;navpanes=0"></iframe>
+      <p class="rbv-loading" data-loading hidden>Opening the page…</p>
+    </div>
+  </section>
+</div>
+<script src="{{ static('app.js') }}" defer></script>
+<script src="{{ static('rbview.js') }}" defer></script>
+</body>
+</html>

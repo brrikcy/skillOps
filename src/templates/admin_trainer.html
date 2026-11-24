@@ -2,13 +2,33 @@
 {% from "_ui.html" import icon %}
 {% block content %}
 <div class="page-head">
-  <div><div class="eyebrow"><a href="/admin/trainers">Trainers</a></div><h1>{{ t.name }}{% if not t.enabled %} <span class="badge grey">turned off</span>{% endif %}</h1>
+  <div><h1>{{ t.name }}{% if not t.enabled %} <span class="badge archived">turned off</span>{% endif %}</h1>
     <p class="sub">{{ t.email }} · signs in at <code>{{ web_address }}</code></p></div>
 </div>
+{% if not t.enabled %}<div class="archived-banner">{{ icon("i-archive") }}This trainer's account is turned off. They cannot sign in. Their marks and notes are kept.</div>{% endif %}
 <div class="grid side-main">
+  <div>
+  <div class="card flush">
+    <div class="card-head"><h2>{{ icon("i-building") }} Institutions</h2><span class="muted small">they can be linked to these institutions' batches</span></div>
+    {% if member_of %}
+    <div class="table-wrap"><table class="table small"><tbody>
+      {% for i in member_of %}<tr><td><a href="/admin/institutions/{{ i.id }}"><strong>{{ i.name }}</strong></a></td>
+        <td class="right"><form method="post" action="/admin/trainers/{{ t.email|q }}/institutions/remove" class="inline">{% include "_guard.html" %}<input type="hidden" name="inst_id" value="{{ i.id }}"><button class="btn sm ghost" type="submit" data-confirm="Take {{ t.name }} off {{ i.name }}? They are unlinked from its batches; their ticks are kept.">Remove</button></form></td></tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="card-body muted small">Not in any institution yet. Add one below to link their batches.</div>{% endif %}
+    {% if can_join %}
+    <div class="card-body" style="border-top:1px solid var(--line)">
+      <form method="post" action="/admin/trainers/{{ t.email|q }}/institutions" class="form-row">{% include "_guard.html" %}
+        <label>Add to an institution<select name="inst_id" required><option value="">Choose…</option>{% for i in can_join %}<option value="{{ i.id }}">{{ i.name }}</option>{% endfor %}</select></label>
+        <button class="btn" type="submit">{{ icon("i-plus") }}Add</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
   <div class="card">
     <div class="card-head"><h2>{{ icon("i-users") }} Batches</h2></div>
     <div class="card-body">
+      {% if tree %}
       <form method="post" action="/admin/trainers/{{ t.email|q }}/batches">{% include "_guard.html" %}
         {% for i in tree %}
         <fieldset><legend>{{ i.institution.name }}</legend>
@@ -16,24 +36,44 @@
             {% for b in p.batches %}<label class="check"><input type="checkbox" name="batch" value="{{ b.id }}" {% if b.id in linked %}checked{% endif %}> {{ b.name }}</label>{% endfor %}
           {% endfor %}
         </fieldset>
-        {% else %}<p class="muted">There are no batches yet.</p>{% endfor %}
+        {% endfor %}
         <input type="hidden" name="batch" value="">
         <button class="btn primary" type="submit">Save batches</button>
       </form>
+      {% elif member_of %}<p class="muted">Their institutions have no batches yet.</p>
+      {% else %}<p class="muted">Add them to an institution first; its batches then show here.</p>{% endif %}
     </div>
+  </div>
   </div>
   <div>
     <div class="card"><div class="card-head"><h2>Name</h2></div><div class="card-body">
-      <form method="post" action="/admin/trainers/{{ t.email|q }}/update">{% include "_guard.html" %}<label>Name<input name="name" value="{{ t.name }}" required maxlength="80"></label><button class="btn" type="submit">Save</button></form></div></div>
+      <form method="post" action="/admin/trainers/{{ t.email|q }}/update">{% include "_guard.html" %}<label>Name<input name="name" value="{{ t.name }}" required maxlength="80"></label>
+        <button class="btn" type="submit">Save</button></form></div></div>
     <div class="card"><div class="card-head"><h2>Account</h2></div><div class="card-body">
       <div class="btn-row" style="flex-direction:column;align-items:stretch">
         <form method="post" action="/admin/trainers/{{ t.email|q }}/resend">{% include "_guard.html" %}<button class="btn" type="submit" style="width:100%">Send the invitation again</button></form>
         <form method="post" action="/admin/trainers/{{ t.email|q }}/reset">{% include "_guard.html" %}<button class="btn" type="submit" style="width:100%" data-confirm="Reset this trainer's password? They need the emailed code to sign in.">{{ icon("i-key", "sm") }}Reset password</button></form>
-        {% if t.enabled %}<form method="post" action="/admin/trainers/{{ t.email|q }}/disable">{% include "_guard.html" %}<button class="btn danger" type="submit" style="width:100%" data-confirm="Turn off {{ t.name }}'s account? They are signed out at once.">Turn off account</button></form>
-        {% else %}<form method="post" action="/admin/trainers/{{ t.email|q }}/enable">{% include "_guard.html" %}<button class="btn primary" type="submit" style="width:100%">Turn account on</button></form>{% endif %}
+
       </div>
       <p class="muted small" style="margin-top:10px">"Send the invitation again" is for someone who has never signed in; "Reset password" for someone who has.</p>
     </div></div>
+    <div class="card remove-card">
+      <div class="card-head"><h2>Turn off or delete</h2></div>
+      <div class="card-body">
+        <div class="remove-row">
+          <div><strong>{{ "Turned off" if not t.enabled else "Turn off" }}</strong><div class="muted small">{{ "They cannot sign in." if not t.enabled else "Signs them out at once. Their links and history are kept." }}</div></div>
+          {% if t.enabled %}<form method="post" action="/admin/trainers/{{ t.email|q }}/disable">{% include "_guard.html" %}<button class="btn" type="submit" data-confirm="Turn off {{ t.name }}'s account? They are signed out at once.">Turn off</button></form>
+          {% else %}<form method="post" action="/admin/trainers/{{ t.email|q }}/enable">{% include "_guard.html" %}<button class="btn primary" type="submit">Turn on</button></form>{% endif %}
+        </div>
+        <details class="remove-row delete-box">
+          <summary><div><strong class="danger-text">Delete</strong><div class="muted small">Removes the account, institution memberships and batch links. Their past ticks keep their name.</div></div><span class="btn danger">Delete…</span></summary>
+          <form method="post" action="/admin/trainers/{{ t.email|q }}/delete" class="form-row delete-form">{% include "_guard.html" %}
+            <label>Type <strong>{{ t.name }}</strong> to confirm<input name="confirm_name" required autocomplete="off"></label>
+            <button class="btn danger" type="submit" data-confirm="Delete {{ t.name }}'s account for good?">Delete trainer</button>
+          </form>
+        </details>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

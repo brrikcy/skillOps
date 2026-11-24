@@ -2,10 +2,33 @@
 {% from "_ui.html" import icon, empty %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Live data</h1><p class="sub">{{ live_data_name() }}: feeds, the simulation clock and datasets. Join codes and students are on each batch's Live data tab.</p></div>
-  <div class="actions"><a class="btn" href="/status" target="_blank" rel="noopener">Public status</a><a class="btn" href="/docs" target="_blank" rel="noopener">Developer docs</a></div>
+  <div><h1>{{ live_data_name() }}</h1></div>
+  <div class="actions"><a class="btn" href="/docs" target="_blank" rel="noopener">Developer docs</a></div>
 </div>
 {% if error %}<div class="flash bad">{{ error }}</div>{% endif %}
+<div class="{% if imports %}grid two{% endif %}">
+  <div class="card">
+    <div class="card-head"><h2>{{ icon("i-upload") }} Add data</h2></div>
+    <div class="card-body">
+      <form method="post" action="{{ upload.action }}" enctype="multipart/form-data" class="form-row" {% if upload.direct %}data-plain{% endif %}>
+        {% if upload.direct %}{% for k, v in upload.fields.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+        {% else %}{% include "_guard.html" %}{% endif %}
+        <label>SQLite database (.db) or .csv, up to 400 MB<input type="file" name="file" accept=".db,.sqlite,.sqlite3,.csv" required></label>
+        <button class="btn primary" type="submit">Upload</button>
+      </form>
+      <p class="muted small">You choose how each table's rows appear over time on the next screen. Files with millions of rows load faster with <code>python admin.py upload</code>.</p>
+    </div>
+  </div>
+  {% if imports %}
+  <div class="card flush">
+    <div class="card-head"><h2>Recent uploads</h2></div>
+    <div class="table-wrap"><table class="table small"><tbody>
+      {% for i in imports %}<tr><td><a href="/admin/live/imports/{{ i.id }}">{{ i.filename }}</a><div class="muted">{{ i.at|when }}</div></td>
+        <td class="right"><span class="badge {% if i.status == 'done' %}teal{% elif i.status == 'failed' %}red{% elif i.status == 'ready' %}warn{% endif %}">{{ i.status_text }}</span></td></tr>{% endfor %}
+    </tbody></table></div>
+  </div>
+  {% endif %}
+</div>
 {% for f in feeds %}
 <div class="card">
   <div class="card-head"><h2>{{ icon("i-db") }} {{ f.feed }}</h2><span class="badge {% if f.status == 'running' %}teal{% elif f.status == 'paused' %}warn{% endif %}">{{ f.status }}</span>
@@ -25,7 +48,8 @@
       {% for d in f.datasets %}
       <tr><td><code>{{ d.dataset }}</code></td><td>{% if d.active %}<span class="badge teal">yes</span>{% else %}<span class="badge grey">no</span>{% endif %}</td>
         <td class="num">{{ "{:,}".format(d.rows_total or 0) }}</td><td class="num">{{ "{:,}".format(d.rows_released or 0) }}</td><td>{{ d.version }}</td>
-        <td class="right"><form method="post" action="/admin/live/dataset" class="inline">{% include "_guard.html" %}<input type="hidden" name="dataset" value="{{ d.dataset }}"><input type="hidden" name="active" value="{{ '0' if d.active else '1' }}"><button class="btn sm ghost" type="submit">{{ "Turn off" if d.active else "Activate" }}</button></form></td></tr>
+        <td class="right nowrap"><form method="post" action="/admin/live/dataset" class="inline">{% include "_guard.html" %}<input type="hidden" name="dataset" value="{{ d.dataset }}"><input type="hidden" name="active" value="{{ '0' if d.active else '1' }}"><button class="btn sm ghost" type="submit">{{ "Turn off" if d.active else "Activate" }}</button></form>
+          <form method="post" action="/admin/live/delete" class="inline">{% include "_guard.html" %}<input type="hidden" name="dataset" value="{{ d.dataset }}"><button class="btn sm ghost danger-text" type="submit" title="Delete this dataset" aria-label="Delete {{ d.dataset }}" data-confirm="Delete dataset {{ d.dataset }} and all its {{ '{:,}'.format(d.rows_total or 0) }} rows? Students fetching it will get 'unknown dataset'. This cannot be undone.">{{ icon("i-x", "sm") }}</button></form></td></tr>
       {% endfor %}
       </tbody>
     </table></div>
@@ -40,9 +64,15 @@
         <button class="btn" type="submit" data-confirm="Change the clock of {{ f.feed }}?">Save clock</button>
       </form>
     </details>
+    <details style="margin-top:8px"><summary class="small danger-text"><strong>Delete this feed</strong></summary>
+      <form method="post" action="/admin/live/delete" class="form-row" style="margin-top:10px">{% include "_guard.html" %}<input type="hidden" name="feed" value="{{ f.feed }}">
+        <label>Type <code>{{ f.feed }}</code> to confirm<input name="confirm_name" required autocomplete="off"></label>
+        <button class="btn danger" type="submit" data-confirm="Delete feed {{ f.feed }} with all {{ f.datasets|length }} dataset(s) and their rows? This cannot be undone.">Delete feed</button>
+      </form>
+    </details>
   </div>
 </div>
 {% else %}
-<div class="card">{{ empty("i-db", "No feed is loaded yet", "Load a .db file from your laptop: python admin.py upload --db file.db --mapping datasets.json --feed name --go-live \"2026-11-16 09:00\"") }}</div>
+<div class="card">{{ empty("i-db", "No feed is loaded yet", "Upload a .db or .csv file above to start one.") }}</div>
 {% endfor %}
 {% endblock %}

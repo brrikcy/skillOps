@@ -1,5 +1,5 @@
 {% from "_ui.html" import icon %}<!doctype html>
-<html lang="en-IN">
+<html lang="en-IN"{% set _t = req.cookies.get("so_theme", "") if req else "" %}{% if _t in ("light", "dark") %} data-theme="{{ _t }}"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,9 +10,9 @@
 <body class="teach-page">
 {% set level_name = pub.level_names[pub.checkable-1]|lower %}
 <header class="t-top">
-  <a class="t-back" href="/b/{{ bc.batch.id }}" title="Back to {{ bc.batch.name }}">{{ icon("i-left") }}<span>{{ bc.batch.name }}</span></a>
+  <a class="t-back" href="/b/{{ bc.batch.id }}/today" title="Back to {{ bc.batch.name }}">{{ icon("i-left") }}<span>{{ bc.batch.name }}</span></a>
   <div class="t-where">
-    <div class="t-path">{{ proj.name }} · {{ path }} <span class="muted">· section {{ number }} of {{ count }}</span></div>
+    <div class="t-path">{{ proj.name }} · {{ path }} <span class="muted">· section {{ number }} of {{ count }}</span>{% if view_only %} <span class="badge grey">view only</span>{% endif %}</div>
     <h1>{{ section.title }}</h1>
   </div>
   <div class="t-progress" title="{{ done_here }} of {{ items|length }} {{ level_name }}s in this section are done">
@@ -20,6 +20,7 @@
     <div class="bar teal"><span data-done-bar style="width:{{ (100 * done_here / (items|length or 1))|round|int }}%"></span></div>
   </div>
   <div class="t-tools">
+    <button class="theme-toggle" type="button" data-theme-toggle title="Light or dark" aria-label="Switch between light and dark">{{ icon("i-moon", "i-light") }}{{ icon("i-sun", "i-dark") }}</button>
     <details class="t-menu">
       <summary class="btn sm">{{ icon("i-list", "sm") }}Sections</summary>
       <div class="t-menu-list">
@@ -29,6 +30,7 @@
         {% endfor %}
       </div>
     </details>
+    <a class="btn sm" href="{{ base }}/plan?part={{ section.id }}" title="Session planner" data-popup>{{ icon("i-steps", "sm") }}Plan</a>
     <button class="btn sm" type="button" data-size="-1" title="Smaller text" aria-label="Smaller text">A−</button>
     <button class="btn sm" type="button" data-size="1" title="Larger text" aria-label="Larger text">A+</button>
     {% if prev_s %}<a class="btn sm" data-prev-section href="{{ base }}/teach/{{ prev_s.id }}" title="Previous section">{{ icon("i-left", "sm") }}</a>{% endif %}
@@ -39,23 +41,19 @@
 <main class="t-cols" data-columns tabindex="0" aria-label="Section text, in columns. Use the arrow keys to move.">
   {% if intro and intro|striptags|trim %}<section class="t-intro">{{ intro|safe }}</section>{% endif %}
   {% for n, html_body in items %}
-  {% set done = n.id in summ.done_ids %}{% set rep = n.id in summ.repeat_ids %}{% set t = summ.ticks.get(n.id) %}
-  <section class="t-act {% if done %}done{% endif %} {% if rep %}repeat{% endif %}" id="a-{{ n.id }}" style="--act:#{{ n.fill or '3b404a' }}">
+  {% set done = n.id in summ.done_ids %}{% set t = summ.ticks.get(n.id) %}
+  <section class="t-act {% if done %}done{% endif %} {% if planned.get(n.id) %}planned{% endif %}" id="a-{{ n.id }}" style="--act:#{{ n.fill or '3b404a' }}">
     <div class="t-act-head">
       {% if n.label %}<span class="act-badge" style="background:#{{ n.fill or '3b404a' }}">{{ n.label }}</span>{% endif %}
-      <h2>{{ n.title }}</h2>
-      <div class="t-act-btns">
+      <h2 {% if planned.get(n.id) %}data-plan="today's plan · #{{ planned[n.id] }}"{% endif %}>{{ n.title }}</h2>
+      {% if not view_only %}<div class="t-act-btns">
         <form method="post" action="{{ base }}/i/{{ n.id }}/{{ 'untick' if done else 'tick' }}" data-js="tick-inline"
               data-tick="{{ base }}/i/{{ n.id }}/tick" data-untick="{{ base }}/i/{{ n.id }}/untick" class="inline">
           {% include "_guard.html" %}
           <button type="submit" class="t-check {% if done %}on{% endif %}" title="{% if done %}Done{% if t %} · {{ t.by_name }} · {{ t.at|when }}{% endif %} (click to un-mark){% else %}Mark done{% endif %}"
                   aria-pressed="{{ 'true' if done else 'false' }}">{{ icon("i-check", "sm") }}<span>{{ "Done" if done else "Mark done" }}</span></button>
         </form>
-        <form method="post" action="{{ base }}/i/{{ n.id }}/repeat" data-js="repeat-inline" class="inline">
-          {% include "_guard.html" %}<input type="hidden" name="on" value="{{ '0' if rep else '1' }}">
-          <button type="submit" class="t-flag {% if rep %}on{% endif %}" title="{{ 'Marked: needs a repeat (click to clear)' if rep else 'Needs a repeat' }}" aria-pressed="{{ 'true' if rep else 'false' }}">{{ icon("i-refresh", "sm") }}<span class="sr">Needs a repeat</span></button>
-        </form>
-      </div>
+      </div>{% else %}{% if done %}<span class="t-check on" title="Done{% if t %} · {{ t.by_name }} · {{ t.at|when }}{% endif %}">{{ icon("i-check", "sm") }}<span>Done</span></span>{% endif %}{% endif %}
     </div>
     <div class="rb-content">{{ html_body|safe }}</div>
   </section>

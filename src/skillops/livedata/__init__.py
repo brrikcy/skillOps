@@ -1,4 +1,4 @@
-"""SkillOps Live Data: the live-data simulation engine (copied from ROBOMY DSE).
+"""Live Data Simulator: the live-data simulation engine (copied from ROBOMY DSE).
 
 Its tables are registered with SkillOps' store, so tests, local mode, health checks and the
 export see them too. Student-facing parts (the /v1 API and the register, docs and status pages)

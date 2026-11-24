@@ -14,7 +14,7 @@ def fill(pattern, ids):
 
     def sub(m):
         name, rx = m.group(1), m.group(2)
-        for prefix, value in (("job-", "job-abcdef12"), ("i-", ids["i1"]), ("p-", ids["p1"]),
+        for prefix, value in (("job-", "job-abcdef12"), ("imp-", "imp-abcdef12"), ("i-", ids["i1"]), ("p-", ids["p1"]), ("c-", ids["c1"]),
                               ("b-", ids["B"]), ("j-", proj), ("r-", "r-abcdef"), ("v-", "v-abcdef"), ("n[", "n12")):
             if rx.startswith(prefix):
                 return value

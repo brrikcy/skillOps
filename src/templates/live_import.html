@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Add data · {{ item.filename }}</h1>
+    <p class="sub">{{ "{:,}".format(item.size) }} bytes · uploaded {{ item.at|when }}</p></div>
+  <div class="actions"><span class="badge {% if item.status == 'done' %}teal{% elif item.status == 'failed' %}red{% elif item.status == 'ready' %}warn{% endif %}">{{ item.status_text }}</span></div>
+</div>
+
+{% if item.status in ("inspecting", "loading") %}
+<div class="card" data-autorefresh="3">
+  <div class="card-body"><p><strong>{{ item.status_text }}</strong></p><p class="muted small">{{ item.message or "Starting…" }}</p>
+    <p class="muted small">This page refreshes itself every few seconds. You can leave it; the work carries on.</p></div>
+</div>
+{% elif item.status == "done" %}
+<div class="flash ok">{{ item.message }}</div>
+<p><a class="btn primary" href="/admin/live">{{ icon("i-db") }}See the feeds</a></p>
+{% endif %}
+
+{% if item.status in ("ready", "failed") and item.tables %}
+{% if item.status == "failed" %}<div class="flash bad">{{ item.message }}</div>{% endif %}
+<form method="post" action="/admin/live/imports/{{ item.id }}">
+{% include "_guard.html" %}
+<div class="card">
+  <div class="card-head"><h2>{{ icon("i-db") }} Feed and clock</h2></div>
+  <div class="card-body">
+    {% set earliest = item.tables|map(attribute="dates")|sum(start=[])|map(attribute="min")|select|sort|first %}
+    <div class="form-row">
+      {% if feeds %}<label>Add to a feed<select name="feed"><option value="">— a new feed —</option>{% for f in feeds %}<option value="{{ f.feed }}">{{ f.feed }} (data from {{ f.data_start_local[:10] }})</option>{% endfor %}</select></label>{% endif %}
+      <label>{% if feeds %}Or a new feed called{% else %}Feed name{% endif %}<input name="feed_new" maxlength="64" pattern="[A-Za-z0-9_\-]+" placeholder="for example airtel" value="{% if not feeds %}{{ item.filename.rsplit('.', 1)[0]|lower|replace(' ', '_') }}{% endif %}"></label>
+    </div>
+    <div class="form-row">
+      <label>Data start (new feed)<input name="data_start" value="{{ (earliest or '')[:10] }}" placeholder="2025-07-01"><span class="hint">The data date shown at go-live.{% if earliest %} Earliest date in the file: {{ earliest[:19] }}.{% endif %}</span></label>
+      <label>Go-live (India time)<input type="datetime-local" name="go_live"><span class="hint">When students start to see rows. Needed for a new feed.</span></label>
+      <label>Speed<input name="speed" inputmode="decimal" placeholder="1"><span class="hint">Data hours per real hour.</span></label>
+    </div>
+    <label class="check"><input type="checkbox" name="activate" value="1"> Show the datasets to students as soon as they are loaded</label>
+  </div>
+</div>
+
+{% for t in item.tables %}{% set k = loop.index0 %}
+{% set dcols = t.dates|map(attribute="column")|list %}
+<div class="card imp-table">
+  <div class="card-head">
+    <label class="check" style="margin:0"><input type="checkbox" name="use{{ k }}" value="1" checked> <h2 style="display:inline">{{ t.table }}</h2></label>
+    <span class="muted small">{{ "{:,}".format(t.rows) }} rows · {{ t.columns|length }} columns</span>
+  </div>
+  <div class="card-body">
+    <div class="muted small" style="margin-bottom:8px">Columns: {% for c in t.columns %}<code>{{ c }}</code>{% if not loop.last %} {% endif %}{% endfor %}</div>
+    {% if t.dates %}<div class="small" style="margin-bottom:10px">{% for d in t.dates %}<span class="badge">{{ d.column }}: {{ d.min[:19] }} → {{ d.max[:19] }}</span> {% endfor %}</div>{% endif %}
+    <div class="form-row">
+      <label>Dataset name{% set existing = datasets.get(t.table) %}<input name="name{{ k }}" value="{{ t.table }}" maxlength="64" required pattern="[A-Za-z0-9_\-]+">{% if existing %}<span class="hint">A dataset with this name exists: loading replaces its rows (version goes up).</span>{% endif %}</label>
+      <label>Key column (optional)<select name="key{{ k }}"><option value="">none</option>{% for c in t.columns %}<option>{{ c }}</option>{% endfor %}</select></label>
+    </div>
+    <div class="small" style="margin:4px 0 6px">When does a row appear for students?</div>
+    <div class="pills rules">
+      <label class="pill"><input type="radio" name="rule{{ k }}" value="time" {% if dcols %}checked{% endif %}><span>At its time</span></label>
+      <label class="pill"><input type="radio" name="rule{{ k }}" value="start_of_day"><span>At the start of its date</span></label>
+      <label class="pill"><input type="radio" name="rule{{ k }}" value="end_of_day"><span>At the end of its date</span></label>
+      <label class="pill"><input type="radio" name="rule{{ k }}" value="hour"><span>End of its date + hour</span></label>
+      <label class="pill"><input type="radio" name="rule{{ k }}" value="static" {% if not dcols %}checked{% endif %}><span>All at once (a reference table)</span></label>
+    </div>
+    <div class="form-row rule-cols">
+      <label class="for-time">Time column<select name="time{{ k }}">{% for c in t.columns %}<option {% if dcols and c == dcols[0] %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+      <label class="for-date">Date column<select name="date{{ k }}">{% for c in t.columns %}<option {% if dcols and c == dcols[0] %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+      <label class="for-hour">Hour column (0–23)<select name="hour{{ k }}">{% for c in t.columns %}<option {% if 'hour' in c|lower %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+    </div>
+  </div>
+</div>
+{% endfor %}
+<div class="btn-row"><button class="btn primary lg" type="submit" data-confirm="Load the ticked tables now?">{{ icon("i-upload") }}Load into the {{ live_data_name() }}</button></div>
+</form>
+{% elif item.status == "failed" %}
+<div class="flash bad">{{ item.message }}</div>
+<p><a class="btn" href="/admin/live">Upload another file</a></p>
+{% endif %}
+{% endblock %}

@@ -2,18 +2,18 @@
 {% from "_ui.html" import icon, empty, archived_toggle %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Institutions</h1><p class="sub">Places where Robomy runs training. Each holds its programmes and its own MCQ connection.</p></div>
+  <div><h1>Institutions</h1></div>
   <div class="actions">{{ archived_toggle(show_archived, "/admin/institutions") }}</div>
 </div>
 <div class="grid side-main">
   <div class="card flush">
     {% if items %}
     <div class="table-wrap"><table class="table">
-      <thead><tr><th>Institution</th><th>Code</th><th class="num">Programmes</th><th></th></tr></thead>
+      <thead><tr><th>Institution</th><th>Code</th><th class="num">Programmes</th><th class="num">Trainers</th><th></th></tr></thead>
       <tbody>
       {% for i in items %}
-      <tr><td><a href="/admin/institutions/{{ i.id }}"><strong>{{ i.name }}</strong></a>{% if i.archived %} <span class="badge grey">archived</span>{% endif %}</td>
-        <td><span class="badge">{{ i.code }}</span></td><td class="num">{{ i.programme_count }}</td>
+      <tr class="{% if i.archived %}row-archived{% endif %}"><td><a href="/admin/institutions/{{ i.id }}"><strong>{{ i.name }}</strong></a>{% if i.archived %} <span class="badge archived">archived</span>{% endif %}</td>
+        <td><span class="badge">{{ i.code }}</span></td><td class="num">{{ i.programme_count }}</td><td class="num">{{ i.trainer_count }}</td>
         <td class="right"><a class="btn sm" href="/admin/institutions/{{ i.id }}">Open</a></td></tr>
       {% endfor %}
       </tbody>

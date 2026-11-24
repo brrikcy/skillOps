@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% import "_segbar.html" as sb %}
+{% block content %}
+<nav class="subtabs scope-tabs" aria-label="Show progress for">
+  <a href="/team?scope=current" class="{% if scope == 'current' %}on{% endif %}"{% if scope == 'current' %} aria-current="page"{% endif %}>Current</a>
+  <a href="/team?scope=all" class="{% if scope == 'all' %}on{% endif %}"{% if scope == 'all' %} aria-current="page"{% endif %}>All projects</a>
+</nav>
+
+{% for g in t.programmes %}
+<div class="card prog-card">
+  <div class="prog-head">
+    <div><div class="eyebrow">{{ g.institution.name }}</div><h2>{{ g.programme.name }}</h2>
+      <div class="muted small">{{ g.rows|length }} batch{{ "" if g.rows|length == 1 else "es" }}</div></div>
+  </div>
+
+  {% if not staff.is_super %}
+  <div class="compare">
+    <div class="compare-card">
+      <div class="label">Items delivered · last {{ t.days }} days</div>
+      <div class="compare-row"><span class="who you">You</span><div class="hbar"><span style="width:{{ (100 * g.me.delivered / g.max_delivered)|round|int }}%"></span></div><b>{{ g.me.delivered }}</b></div>
+      <div class="compare-row"><span class="who">Other trainers here (average of {{ g.others.trainers }})</span><div class="hbar grey"><span style="width:{{ (100 * g.others.delivered / g.max_delivered)|round|int }}%"></span></div><b>{{ g.others.delivered }}</b></div>
+    </div>
+    <div class="compare-card">
+      <div class="label">{% if scope == "current" %}Current project progress{% else %}Programme progress (all projects){% endif %}</div>
+      <div class="compare-row"><span class="who you">Your batches ({{ g.me.batches }})</span><div class="hbar teal"><span style="width:{{ g.me.cur_pct if scope == 'current' else g.me.pct }}%"></span></div><b>{{ g.me.cur_pct if scope == 'current' else g.me.pct }}%</b></div>
+      <div class="compare-row"><span class="who">Other batches ({{ g.others.batches }})</span><div class="hbar grey"><span style="width:{{ g.others.cur_pct if scope == 'current' else g.others.pct }}%"></span></div><b>{{ g.others.cur_pct if scope == 'current' else g.others.pct }}%</b></div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if scope == "all" %}{{ sb.legend(g.all_shown, 0, 0) }}{% endif %}
+  {% for r in g.rows %}
+  <div class="batch-line {% if r.mine %}is-mine{% endif %}">
+    <div class="batch-who">
+      {% if r.mine or staff.is_super %}<a href="/b/{{ r.batch.id }}"><strong>{{ r.batch.name }}</strong></a>{% else %}<strong>{{ r.batch.name }}</strong>{% endif %}{% if r.mine %} <span class="badge teal">Your batch</span>{% endif %}
+      {% for tr in r.trainers %}<div class="small muted">{{ tr.name }}</div>{% else %}<div class="small muted">no trainer</div>{% endfor %}
+    </div>
+    <div class="batch-bar">
+      {{ sb.bar(r.cur_seg if scope == "current" else r.all_seg, r.batch.name) }}
+      <div class="batch-now small muted">{% if r.current %}Now: <strong>{{ r.current.project.name }}</strong>{% if r.current.s and r.current.s.position %} · furthest item {{ r.current.s.position }}{% endif %}{% endif %}
+        · {{ r.recent }} item{{ "" if r.recent == 1 else "s" }} in {{ t.days }} days{% if r.last %} · last marked {{ r.last.at|when }}{% endif %}</div>
+    </div>
+    <div class="batch-overall">
+      {% if scope == "current" %}<span class="overall-num">{{ r.cur_pct }}%</span>
+      <span class="small muted">{% if r.cur_total %}{{ r.cur_done }}/{{ r.cur_total }} items{% else %}no runbook{% endif %}</span>
+      {% else %}<span class="overall-num">{{ r.pct }}%</span>
+      <span class="small muted">{{ r.finished }}/{{ r.project_total }} projects</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">{{ empty("i-users", "No batches yet") }}</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,167 @@
+{% from "_ui.html" import icon %}<!doctype html>
+<html lang="en-IN"{% set _t = req.cookies.get("so_theme", "") if req else "" %}{% if _t in ("light", "dark") %} data-theme="{{ _t }}"{% endif %}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · {{ platform_name() }}</title>
+<link rel="stylesheet" href="{{ static('style.css') }}">
+<link rel="icon" href="{{ static('favicon.svg') }}" type="image/svg+xml">
+</head>
+<body class="plan-page">
+<header class="t-top">
+  <a class="t-back" href="/b/{{ bc.batch.id }}/today" title="Back to {{ bc.batch.name }}" data-close-popup>{{ icon("i-left") }}<span>{{ bc.batch.name }}</span></a>
+  <div class="t-where">
+    <div class="t-path">{{ bc.programme.name }} · {{ proj.name }}{% if view_only and mode == "plan" %} <span class="badge grey">view only</span>{% endif %}</div>
+    <h1>{{ "Session planner" if mode == "plan" else proj.name ~ " runbook" }}</h1>
+  </div>
+  <div class="t-tools">
+    <button class="theme-toggle" type="button" data-theme-toggle title="Light or dark" aria-label="Switch between light and dark">{{ icon("i-moon", "i-light") }}{{ icon("i-sun", "i-dark") }}</button>
+    {% if projects|length > 1 %}
+    <details class="t-menu">
+      <summary class="btn sm">{{ icon("i-book", "sm") }}{{ proj.name }}</summary>
+      <div class="t-menu-list">{% for j in projects %}<a href="/b/{{ bc.batch.id }}/p/{{ j.id }}/{{ mode }}{% if mode == 'plan' %}?date={{ day }}{% endif %}" class="{% if j.id == proj.id %}on{% endif %}"><span>{{ j.name }}</span></a>{% endfor %}</div>
+    </details>
+    {% endif %}
+    {% if mode == "plan" %}
+    <form method="get" class="plan-date">
+      <label class="sr" for="plan-date">Plan for</label>
+      <input id="plan-date" type="date" name="date" value="{{ day }}" required data-autosubmit>
+      <input type="hidden" name="part" value="{{ part.section.id }}">
+      <noscript><button class="btn sm" type="submit">Open</button></noscript>
+    </form>
+    {% else %}
+    <a class="btn sm" href="/b/{{ bc.batch.id }}/p/{{ proj.id }}/plan?part={{ part.section.id }}">{{ icon("i-steps", "sm") }}Plan a session</a>
+    {% endif %}
+  </div>
+</header>
+
+<div class="planner mode-{{ mode }}" data-planner>
+  <nav class="rv-nav" aria-label="Sections" data-nav>
+    <div class="rv-resize" role="separator" aria-orientation="vertical" aria-label="Resize the sections pane" title="Drag to resize (double-click to reset)" tabindex="0" data-resize></div>
+    <div class="rv-nav-head"><strong>Sections</strong><button class="btn sm ghost" type="button" data-nav-toggle aria-label="Hide the sections" title="Hide the sections">«</button></div>
+    <a class="rv-skip" href="#runbook" data-skip>Skip to the runbook</a>
+    <div class="rv-tools">
+      <label class="sr" for="rv-filter">Find a section or part</label>
+      <input id="rv-filter" type="search" placeholder="Find a section or part" autocomplete="off" data-nav-filter>
+      <div class="rv-tool-btns">
+        <button type="button" class="btn sm ghost" data-nav-collapse title="Fold every section in the list">Fold all</button>
+        <button type="button" class="btn sm ghost" data-nav-expand title="Open every section of the open step">Open step</button>
+      </div>
+    </div>
+    <div class="rv-total" title="Marked done in the teaching view so far">
+      <div class="rv-total-line"><strong>{{ summ.done }}/{{ summ.total }}</strong><span class="muted">done so far &middot; {{ (100 * summ.done / summ.total)|round|int if summ.total else 0 }}%</span></div>
+      <div class="rv-bar"><span style="width:{{ (100 * summ.done / summ.total)|round|int if summ.total else 0 }}%"></span></div>
+    </div>
+    <div class="rv-nav-list">
+      <p class="rv-nofind muted small" hidden data-nofind>Nothing matches.</p>
+      <details class="rv-earlier" hidden data-earlier><summary><span class="rv-earlier-title">Earlier steps</span><span class="rv-count" data-earlier-count></span></summary><div class="rv-earlier-body"></div></details>
+      {% for g in groups %}{% set gc = summ.per.get(g.top.id, [0, 0]) %}
+      <details data-i="{{ loop.index0 }}" data-done="{{ gc[0] }}" data-total="{{ gc[1] }}" class="rv-group {% if gc[1] and gc[0] >= gc[1] %}done{% endif %}" {% if part.section.id in g.sections|map(attribute="id")|list %}open{% endif %}>
+        <summary><span class="rv-group-title">{{ g.top.title }}</span><span class="rv-count">{{ gc[0] }}/{{ gc[1] }}</span></summary>
+        {% for s in g.sections %}{% set c = summ.per.get(s.id, [0, 0]) %}{% set here = s.id == part.section.id %}{% set kids = subs.get(s.id, []) %}
+        {% set pc = (100 * c[0] / c[1])|round|int if c[1] else 0 %}
+        <div class="rv-sec {{ 'sa' if secno[s.id] is odd else 'sb' }}{% if c[1] and c[0] >= c[1] %} done{% endif %}">
+          <div class="rv-sec-row" {% if mode == "plan" and not view_only %}draggable="true" data-src data-proj="{{ proj.id }}" data-node="{{ s.id }}" data-title="{{ s.title }}" data-label="{{ s.label or '' }}" data-fill="{{ s.fill or '' }}" data-path="{{ secpath.get(s.id, '') }}"{% endif %}>
+            <button class="rv-caret" type="button" data-toggle-subs aria-expanded="{{ 'true' if here else 'false' }}" aria-label="Show or hide the parts of {{ s.title }}" {% if kids|length < 1 %}hidden{% endif %}>▸</button>
+            <a href="?{% if mode == 'plan' %}date={{ day }}&amp;{% endif %}part={{ s.id }}" draggable="false" data-goto="{{ s.id }}" class="{% if here %}on{% endif %}" {% if here %}aria-current="true"{% endif %}>
+              <span class="rv-sec-title">{% if c[1] and c[0] >= c[1] %}<span class="rv-tick" aria-label="Completed">&#10003;</span>{% endif %}{{ s.title }}</span>
+              <span class="rv-count">{{ c[0] }}/{{ c[1] }}</span>
+              <span class="rv-bar sm"><span style="width:{{ pc }}%"></span></span>
+            </a>
+            {% if mode == "plan" and not view_only %}<button class="rv-add" type="button" aria-pressed="false" data-nav-add title="Add this whole section to the plan (press again to take it out)" aria-label="Add or remove the section {{ s.title }}"></button>{% endif %}
+          </div>
+          <div class="rv-subs" {% if not here or kids|length < 1 %}hidden{% endif %}>
+            {% for x in kids %}<div class="rv-sub-row {{ 'ta' if loop.index is odd else 'tb' }}" {% if mode == "plan" and not view_only %}draggable="true" data-src data-proj="{{ proj.id }}" data-node="{{ x.id }}" data-parent="{{ s.id }}" data-title="{{ x.title }}" data-label="{{ x.label }}" data-fill="{{ x.fill }}" data-path="{{ secpath.get(s.id, '') }}"{% endif %}>
+              <a class="rv-sub{% if x.done %} done{% endif %}" draggable="false" href="?{% if mode == 'plan' %}date={{ day }}&amp;{% endif %}part={{ s.id }}&amp;at={{ x.id }}" data-goto="{{ s.id }}" data-at="{{ x.id }}" title="{{ x.title }}{% if x.done %} (done){% endif %}"><span class="rv-mark" aria-hidden="true"></span><span class="rv-sub-title">{{ x.title }}</span>{% if x.done %}<span class="sr">done</span>{% endif %}</a>
+              {% if mode == "plan" and not view_only %}<button class="rv-add sm" type="button" aria-pressed="false" data-nav-add title="Add this part to the plan (press again to take it out)" aria-label="Add or remove {{ x.title }}"></button>{% endif %}
+            </div>{% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </details>
+      {% endfor %}
+    </div>
+  </nav>
+
+  <section class="pv" aria-label="Runbook">
+    <div class="pv-bar">
+      <button class="rv-nav-open btn sm" type="button" data-nav-toggle aria-label="Show the sections" title="Show the sections">» Sections</button>
+      <span class="pv-hint">{% if mode == "plan" and not view_only %}Drag a part into the timeline below, or press + on it. {% endif %}The arrow keys move through the columns.</span>
+    </div>
+    <div class="pv-pages" id="runbook" tabindex="0" aria-label="Runbook section, in columns. Use the arrow keys to move." data-pages data-base="/b/{{ bc.batch.id }}/p/{{ proj.id }}/plan/part/" data-mode="{{ mode }}">
+      {% include "_plan_part.html" %}
+    </div>
+  </section>
+
+  {% if mode == "plan" %}
+  <aside class="sp tl" aria-label="Session planner: the timeline of this session">
+    <div class="tl-head">
+      <div class="tl-who">
+        <strong>Session planner</strong><span class="tl-date">{{ day|day_name }}</span>
+        <span class="muted small" data-plan-meta>{% if plan.at %}Saved {{ plan.at|when }} by {{ plan.by_name }}{% elif not view_only %}Nothing planned yet.{% else %}No plan for this date.{% endif %}</span>
+        <span class="sp-state" data-plan-state aria-live="polite"></span>
+      </div>
+      <div class="tl-actions">
+      {% if not view_only %}
+      <div class="tl-save">
+        <button class="btn sm primary keep-primary" type="button" data-plan-save disabled title="Save this plan (nothing is saved until you do)">{{ icon("i-check", "sm") }}Save plan</button>
+        <button class="btn sm ghost" type="button" data-plan-discard hidden title="Throw away the changes made since the last save">Discard</button>
+      </div>
+      {% endif %}
+      <a class="btn sm" href="/b/{{ bc.batch.id }}/plan/pdf?date={{ day }}" data-plan-pdf download title="Download this plan as a PDF" {% if not plan.entries %}hidden{% endif %}>{{ icon("i-download", "sm") }}Download PDF</a>
+      <a class="btn primary sm" href="/b/{{ bc.batch.id }}/session?date={{ day }}" data-plan-teach {% if not plan.entries %}hidden{% endif %}>{{ icon("i-play", "sm") }}{{ "See this session" if view_only else "Teach this session" }}</a>
+      </div>
+      {% if not view_only %}
+      <form method="post" action="/b/{{ bc.batch.id }}/plan" class="sp-line" data-plan-text>{% include "_guard.html" %}
+        <input type="hidden" name="action" value="text"><input type="hidden" name="date" value="{{ day }}"><input type="hidden" name="rev" value="{{ plan.rev }}">
+        <label class="sr" for="sp-line-text">Add your own line</label>
+        <input id="sp-line-text" name="text" maxlength="200" placeholder="Add a line, e.g. Break or Quiz on joins">
+        <button class="btn sm" type="submit">{{ icon("i-plus", "sm") }}Add</button>
+      </form>
+      <form method="post" action="/b/{{ bc.batch.id }}/plan" class="sp-note">{% include "_guard.html" %}
+        <input type="hidden" name="action" value="note"><input type="hidden" name="date" value="{{ day }}"><input type="hidden" name="rev" value="{{ plan.rev }}">
+        <label class="sr" for="sp-note-text">Note for this session</label>
+        <input id="sp-note-text" name="note" maxlength="500" data-plan-note placeholder="Note for this session" value="{{ plan.note }}">
+        <noscript><button class="btn sm" type="submit">Save note</button></noscript>
+      </form>
+      {% elif plan.note %}<span class="day-note tl-note">{{ plan.note }}</span>{% endif %}
+      {% if dates %}
+      <form method="get" class="tl-dates"><label class="sr" for="tl-dates-sel">Other plans</label>
+        <input type="hidden" name="part" value="{{ part.section.id }}">
+        <select id="tl-dates-sel" name="date" data-autosubmit>
+          {% for d in dates[:30] %}<option value="{{ d.date }}" {% if d.date == day %}selected{% endif %}>{{ d.date|day_name }} · {{ d.count }}{% if d.date == today %} · today{% endif %}</option>{% endfor %}
+          {% if day not in dates|map(attribute="date")|list %}<option value="{{ day }}" selected>{{ day|day_name }} · new</option>{% endif %}
+        </select>
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="tl-body">
+      <ol class="sp-list tl-track" data-plan-list aria-label="Plan for {{ day }}, in order">
+        {% for e in plan.entries %}{% set i = loop.index0 %}
+        <li class="sp-entry {% if e.kind == 'text' %}is-text{% endif %}" {% if e.kind != "text" %}style="--act:#{{ e.fill or '3b404a' }}"{% endif %}>
+          {% if e.kind == "text" %}<span class="sp-text">{{ e.text }}</span>
+          {% else %}{% if e.label %}<span class="act-badge" style="background:#{{ e.fill or '3b404a' }}">{{ e.label }}</span>{% endif %}
+            <span class="sp-title"><a href="/b/{{ bc.batch.id }}/p/{{ e.proj }}/teach/{{ e.node }}">{{ e.title }}</a><span class="muted small">{{ e.project_name }} · {{ e.path }}</span></span>{% endif %}
+          {% if not view_only %}
+          <span class="sp-btns">
+            {% for act, sym, lab in [("up", "←", "Move earlier"), ("down", "→", "Move later"), ("remove", "×", "Remove")] %}
+            <form method="post" action="/b/{{ bc.batch.id }}/plan" class="inline">{% include "_guard.html" %}<input type="hidden" name="date" value="{{ day }}"><input type="hidden" name="rev" value="{{ plan.rev }}"><input type="hidden" name="index" value="{{ i }}"><input type="hidden" name="action" value="{{ act }}"><button class="btn sm ghost" type="submit" title="{{ lab }}" aria-label="{{ lab }}">{{ sym }}</button></form>
+            {% endfor %}
+          </span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      <div class="sp-empty tl-empty" data-plan-empty {% if plan.entries %}hidden{% endif %}>
+        {{ icon("i-steps") }}<p>{% if view_only %}Nothing planned.{% else %}Drag parts of the runbook here, in the order you will teach them.{% endif %}</p>
+      </div>
+    </div>
+  </aside>
+  {% endif %}
+</div>
+<script type="application/json" id="plan-data">{{ {"mode": mode, "date": day, "rev": plan.rev, "note": plan.note, "entries": plan.entries, "readonly": view_only, "save": "/b/" ~ bc.batch.id ~ "/plan", "csrf": csrf, "batch": bc.batch.id}|tojson }}</script>
+<script src="{{ static('app.js') }}" defer></script>
+<script src="{{ static('planner.js') }}" defer></script>
+</body>
+</html>

@@ -3,10 +3,12 @@
 Tables (names come from config.table):
 
 CORE      pk/sk strings, plus index gsi1 (gsi1pk, gsi1sk). Small items:
+          COURSE#<id> META           a course (Robomy's);  PROJECT#<id> META  one project of a course
           INST#<id> META             an institution
-          PROG#<id> META             a programme;  PROG#<id> PROJ#<id>  one project of it
+          PROG#<id> META             a programme (its courses, projects added, projects taken out)
           BATCH#<id> META            a batch
-          TRAINER#<email> META       a trainer;    TRAINER#<email> BATCH#<id>  a trainer-batch association
+          TRAINER#<email> META       a trainer;    TRAINER#<email> INST#<id>   works with an institution;
+                                                   TRAINER#<email> BATCH#<id>  a trainer-batch link
           SESSION#<hash>, IDEM#<key>, PENDING#<id>, IMPORT#<id>   short-lived (TTL attribute "ttl")
           JOB#<id>                   a background job
 PROGRESS  pk = "B#<batch>#V#<version>", sk = "I#<item>" (tick) or "N#<item>" (note);

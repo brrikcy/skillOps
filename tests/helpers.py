@@ -15,6 +15,7 @@ os.environ.update({
     "AWS_ACCESS_KEY_ID": "testing", "AWS_SECRET_ACCESS_KEY": "testing", "AWS_SESSION_TOKEN": "testing",
     "AWS_DEFAULT_REGION": "ap-south-1", "AWS_REGION": "ap-south-1",
     "PLATFORM_NAME": "SkillOps", "SKILLOPS_LOCAL": "1", "LOCAL_SUPERADMINS": "boss@robomy.test",
+    "SIMLAB_SECRET": "unit-test-secret",
 })
 for k in ("USER_POOL_ID", "USER_POOL_CLIENT_ID", "JOBS_FUNCTION"):
     os.environ.pop(k, None)
@@ -119,17 +120,21 @@ def boss(aws):
 
 
 def setup_org():
-    """Two institutions. DBI: programme with batches A, B, C and three trainers. Other: one batch."""
+    """Robomy's course "Data Analytics" (IPL, Airtel, HDFC). Two institutions. DBI: a programme on that course
+    with batches A, B, C and three trainers. Second College: a programme with Airtel only, one batch."""
+    c1 = org.create_course("Data Analytics")
+    for name in ("IPL", "Airtel", "HDFC"):
+        org.add_project(c1, name)
     i1 = org.create_institution("DBI Skill Park", "DBI")
     p1 = org.create_programme(i1, "DBI OJT Sem 3 - Data Analyst")
-    for name in ("IPL", "Airtel", "HDFC"):
-        org.add_project(p1, name)
+    org.set_programme_courses(p1, [c1])
     batches = {n: org.create_batch(p1, f"Batch {n}", n) for n in "ABC"}
     for n, b in zip("123", "ABC"):
-        org.create_trainer(f"trainer{n}@robomy.test", f"Trainer {n}")
+        org.create_trainer(f"trainer{n}@robomy.test", f"Trainer {n}", i1)
         org.associate(f"trainer{n}@robomy.test", batches[b])
     i2 = org.create_institution("Second College", "SC")
     p2 = org.create_programme(i2, "Data Analyst Bootcamp")
-    org.add_project(p2, "Airtel")
+    airtel = next(j for j in org.course_projects(c1) if j["name"] == "Airtel")
+    org.add_programme_project(p2, airtel["id"])
     b2 = org.create_batch(p2, "Morning", "M")
-    return {"i1": i1, "p1": p1, "i2": i2, "p2": p2, "b2": b2, **batches}
+    return {"c1": c1, "i1": i1, "p1": p1, "i2": i2, "p2": p2, "b2": b2, **batches}

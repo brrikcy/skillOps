@@ -1,0 +1,24 @@
+{# The segmented project bar used on the dashboards: one part per project shown, filled to that project's %. #}
+{% from "_ui.html" import icon %}
+
+{% macro legend(shown, before, after) %}
+{% if shown %}
+<div class="seg-legend">
+  <span class="seg-side">{% if before %}<span class="seg-fold" title="Projects before these">{{ icon("i-check", "sm") }}{{ before }} earlier</span>{% endif %}</span>
+  <div class="seg-names" style="--n:{{ shown|length }}">{% for x in shown %}<span title="{{ x.project.name }}"><b>{{ x.n }}</b> {{ x.project.name }}</span>{% endfor %}</div>
+  <span class="seg-side seg-side-r">{% if after %}<span class="seg-fold" title="Projects after these">+{{ after }} more</span>{% endif %}</span>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro bar(segments, label) %}
+{% if segments %}
+<div class="seg-bar" style="--n:{{ segments|length }}" role="img" aria-label="{{ label }}: {% for x in segments %}{{ x.project.name }} {{ x.pct }}%{% if not loop.last %}, {% endif %}{% endfor %}">
+  {% for x in segments %}
+  <div class="seg{% if x.pct >= 100 %} full{% elif x.pct >= 70 %} high{% elif x.pct == 0 %} zero{% endif %}" title="{{ x.project.name }}: {{ x.pct }}%">
+    <span class="seg-fill" style="width:{{ x.pct }}%"></span><span class="seg-pct">{{ x.pct }}%</span>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="muted small">No projects in this programme yet.</div>{% endif %}
+{% endmacro %}

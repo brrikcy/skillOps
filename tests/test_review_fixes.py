@@ -151,7 +151,7 @@ def test_a_version_in_use_cannot_be_remapped(aws):
     ids = setup_org()
     rid, vid = publish(docx_factory.runbook())
     airtel = next(j for j in org.list_projects(ids["p1"]) if j["name"] == "Airtel")
-    org.set_project_runbook(ids["p1"], airtel["id"], rid)
+    org.set_project_runbook(airtel["id"], rid)
     progress.batch_version(org.get_batch(ids["A"]), org.get_project(ids["p1"], airtel["id"]))
     v = service.get_version(vid)
     with pytest.raises(Exception) as e:

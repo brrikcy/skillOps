@@ -16,13 +16,14 @@
 {% endmacro %}
 {% block content %}
 <div class="page-head">
-  <div><div class="eyebrow"><a href="/admin/runbooks">Runbooks</a> › <a href="/admin/runbooks/{{ rb.id }}">{{ rb.name }}</a> › v{{ v.number }}</div>
-    <h1>Preview the tree</h1><p class="sub">Check the items before publishing. Open an item to rename it, merge it into the one before, or move its start.</p></div>
+  <div>
+    <h1>Check the tree</h1><p class="sub">Open an item to rename it, merge it into the one before, or move its start. Then publish.</p></div>
   <div class="actions">
-    <a class="btn" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/map">Back to mapping</a>
+    <a class="btn" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/map">{{ icon("i-left", "sm") }}Change the structure</a>
     <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/publish" class="inline">{% include "_guard.html" %}<button class="btn primary" type="submit">{{ icon("i-check") }}Publish v{{ v.number }}</button></form>
   </div>
 </div>
+{% set step = 4 if v.status == "published" else 3 %}{% include "_rb_steps.html" %}
 <div class="stats">
   {% for lvl in range(1, 5) %}{% if counts.get(lvl) %}
   <div class="stat"><div class="label">Level {{ lvl }} · {{ names[lvl-1] }}{% if lvl == v.checkable %} <span class="badge teal">ticked</span>{% endif %}</div><div class="value">{{ counts[lvl] }}</div></div>
@@ -48,7 +49,7 @@
           <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/edit" class="inline">{% include "_guard.html" %}<input type="hidden" name="node" value="{{ sel.id }}"><input type="hidden" name="action" value="later"><button class="btn sm" type="submit">Start one block later</button></form>
         </div>
         <p class="muted small" style="margin-top:12px">Blocks around the start:</p>
-        <div class="small">{% for b in sel_blocks %}<div style="padding:3px 6px;border-radius:4px;{% if b.is_start %}background:var(--red-soft){% endif %}"><span class="muted mono">{{ b.i }}</span> {{ (b.text or "")[:90] }}</div>{% endfor %}</div>
+        <div class="small">{% for b in sel_blocks %}<div style="padding:3px 6px;border-radius:4px;{% if b.is_start %}background:var(--brand-soft){% endif %}"><span class="muted mono">{{ b.i }}</span> {{ (b.text or "")[:90] }}</div>{% endfor %}</div>
       {% else %}
         <p class="muted small">Click an item in the tree to change it.</p>
       {% endif %}

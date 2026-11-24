@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en-IN">
+<html lang="en-IN"{% set _t = req.cookies.get("so_theme", "") if req else "" %}{% if _t in ("light", "dark") %} data-theme="{{ _t }}"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,8 +11,7 @@
 <div class="signin-wrap">
   <div class="signin-card">
     <div class="signin-brand">
-      <img src="{{ static('robomy-logo.png') }}" alt="{{ company() }}" class="signin-robomy">
-      <img src="{{ static('skillops-logo.svg') }}" alt="{{ platform_name() }}" class="signin-skillops">
+      <img src="{{ static('logo.svg') }}" alt="{{ company() }} {{ platform_name() }}" class="signin-logo logo-light"><img src="{{ static('logo-dark.svg') }}" alt="{{ company() }} {{ platform_name() }}" class="signin-logo logo-dark">
     </div>
     {% if local_mode() %}<div class="local-note">Local mode on this laptop</div>{% endif %}
     {% if flash %}<div class="flash {{ flash.kind }}" role="status">{{ flash.message }}</div>{% endif %}

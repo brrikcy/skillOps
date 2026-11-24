@@ -1,13 +1,24 @@
-{% from "_ui.html" import icon %}
+{% from "_ui.html" import icon, view_only %}
 {% set b = page.batch %}
+{% if area == "settings" %}
+{# Settings > Batches > this batch: where the admin changes the batch and runs its classroom tools. #}
 <div class="page-head" style="margin-bottom:8px">
-  <div><div class="eyebrow">{{ page.institution.name }} › {{ page.programme.name }}</div><h1>{{ b.name }}</h1></div>
-  <div class="actions">{% if staff.is_super %}<a class="btn sm" href="/admin/batches/{{ b.id }}">{{ icon("i-settings") }}Batch settings</a>{% endif %}</div>
+  <div class="actions">{% if b.archived %}<span class="badge archived">archived</span>{% endif %}<a class="btn sm ghost" href="/b/{{ b.id }}">{{ icon("i-eye", "sm") }}See progress</a></div>
 </div>
 <nav class="tabs">
-  <a href="/b/{{ b.id }}" class="{% if tab in ('overview', 'teach') %}on{% endif %}">{{ icon("i-book") }}Teach</a>
+  <a href="/admin/batches/{{ b.id }}" class="{% if tab == 'settings' %}on{% endif %}">{{ icon("i-settings") }}Batch set-up</a>
+  <a href="/admin/batches/{{ b.id }}/live" class="{% if tab == 'live' %}on{% endif %}">{{ icon("i-db") }}{{ live_data_name() }}</a>
+  <a href="/admin/batches/{{ b.id }}/mcq" class="{% if tab == 'mcq' %}on{% endif %}">{{ icon("i-test") }}MCQ tests</a>
+</nav>
+{% else %}
+{% if staff.is_super %}<div class="page-head" style="margin-bottom:8px">
+  <div class="actions">{{ view_only("/admin/batches/" ~ b.id, "Change in Settings") }}</div>
+</div>{% endif %}
+<nav class="tabs">
+  <a href="/b/{{ b.id }}" class="{% if tab == 'progress' %}on{% endif %}">{{ icon("i-grid") }}Progress</a>
+  <a href="/b/{{ b.id }}/today" class="{% if tab in ('today', 'teach') %}on{% endif %}">{{ icon("i-play") }}Today</a>
+  <a href="/b/{{ b.id }}/calendar" class="{% if tab == 'calendar' %}on{% endif %}">{{ icon("i-clock") }}Calendar</a>
   <a href="/b/{{ b.id }}/tools" class="{% if tab in ('tools', 'live', 'mcq') %}on{% endif %}">{{ icon("i-settings") }}Tools</a>
-  <a href="/dashboard/b/{{ b.id }}">{{ icon("i-grid") }}Progress</a>
 </nav>
 {% if tab in ('tools', 'live', 'mcq') %}
 <nav class="subtabs" aria-label="Tools">
@@ -15,4 +26,5 @@
   <a href="/b/{{ b.id }}/live" class="{% if tab == 'live' %}on{% endif %}">{{ live_data_name() }}</a>
   <a href="/b/{{ b.id }}/mcq" class="{% if tab == 'mcq' %}on{% endif %}">MCQ tests</a>
 </nav>
+{% endif %}
 {% endif %}

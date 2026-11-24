@@ -1,5 +1,5 @@
 {% from "_ui.html" import icon %}<!doctype html>
-<html lang="en-IN">
+<html lang="en-IN"{% set _t = req.cookies.get("so_theme", "") if req else "" %}{% if _t in ("light", "dark") %} data-theme="{{ _t }}"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,46 +7,77 @@
 <link rel="stylesheet" href="{{ static('style.css') }}">
 <link rel="icon" href="{{ static('favicon.svg') }}" type="image/svg+xml">
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}{% if embed %} embed{% endif %}{% if role %} role-{{ role }}{% endif %}{% if role == 'admin' %} area-{{ area }}{% endif %}{% if nav and req and req.cookies.get("so_nav") == "closed" %} nav-closed{% endif %}{% if not nav %} no-side{% endif %}">
 <header class="topbar">
+  <div class="top-left">{% if nav %}<button class="nav-toggle" type="button" data-nav-toggle aria-label="Show or hide the menu" title="Menu" aria-controls="side-menu">{{ icon("i-menu") }}</button>{% endif %}{% if role == "admin" %}<a class="role-chip" href="{{ '/dashboard' if area == 'settings' else '/settings' }}"{% if area != 'settings' %} data-settings-open{% endif %} title="{{ 'You are changing settings. Click to go back to monitoring.' if area == 'settings' else 'You are monitoring (view only). Click to open Settings.' }}">{{ icon("i-shield", "sm") }}<span class="role-name">Admin</span>{% if area == "settings" %}<span class="role-mode">{{ icon("i-settings", "sm") }}Settings</span>{% endif %}</a>{% elif role == "trainer" %}<span class="role-chip" title="Trainer">{{ icon("i-board", "sm") }}<span class="role-name">Trainer</span></span>{% endif %}{% if page.logo %}<img class="inst-logo" src="{{ page.logo }}" alt="{{ page.institution.name }} logo">{% endif %}</div>
   <a class="brand" href="/" aria-label="{{ platform_name() }} home">
-    <img class="brand-robomy" src="{{ static('robomy-logo.png') }}" alt="{{ company() }}">
-    <img class="brand-skillops" src="{{ static('skillops-logo.svg') }}" alt="{{ platform_name() }}">
+    <img class="brand-logo logo-light" src="{{ static('logo.svg') }}" alt="{{ company() }} {{ platform_name() }}"><img class="brand-logo logo-dark" src="{{ static('logo-dark.svg') }}" alt="{{ company() }} {{ platform_name() }}">
   </a>
-  {% if page.logo %}<img class="inst-logo" src="{{ page.logo }}" alt="{{ page.institution.name }} logo">{% endif %}
-  {% if page.institution or page.batch %}
-  <div class="crumbs">
-    {% if page.institution %}<span>{{ page.institution.name }}</span>{% endif %}
-    {% if page.programme %}<span class="sep">/</span><span>{{ page.programme.name }}</span>{% endif %}
-    {% if page.batch %}<span class="sep">/</span><strong>{{ page.batch.name }}</strong>{% endif %}
-    {% if page.project %}<span class="sep">/</span><strong>{{ page.project.name }}</strong>{% endif %}
-  </div>
-  {% endif %}
-  {% if staff %}
   <div class="top-right">
-    <div class="whoami">
-      <span class="avatar">{{ staff.name[:1]|upper }}</span>
-      <span class="who-text">{{ staff.name }}<span class="role">{{ staff.role_label }}</span></span>
-    </div>
-    <form method="post" action="/signout" class="inline">{% include "_guard.html" %}<button class="btn ghost sm" type="submit" title="Sign out">{{ icon("i-logout") }}<span class="who-text">Sign out</span></button></form>
+    <button class="theme-toggle" type="button" data-theme-toggle title="Light or dark" aria-label="Switch between light and dark">{{ icon("i-moon", "i-light") }}{{ icon("i-sun", "i-dark") }}</button>
+    {% if staff %}
+    <details class="profile-menu">
+      <summary class="avatar-btn" title="{{ staff.name }}" aria-label="Account: {{ staff.name }}"><span class="avatar">{{ staff.name[:1]|upper }}</span></summary>
+      <div class="profile-list">
+        <div class="profile-who"><span class="avatar lg">{{ staff.name[:1]|upper }}</span>
+          <div><strong>{{ staff.name }}</strong><div class="muted small">{{ staff.role_label }} · {{ staff.email }}</div></div></div>
+        {% if local_mode() %}<div class="profile-note">Local mode: fake AWS on this laptop. Nothing is kept after the server stops.</div>{% endif %}
+        <hr>
+        {% if staff.is_super %}{% if area == "settings" %}<a class="menu-item" href="/dashboard">{{ icon("i-eye", "sm") }}Back to monitoring</a>{% endif %}<a class="menu-item" href="/settings"{% if area != "settings" %} data-settings-open{% endif %}>{{ icon("i-settings", "sm") }}Settings</a>{% endif %}
+        <form method="post" action="/signout">{% include "_guard.html" %}<button class="menu-item" type="submit">{{ icon("i-logout", "sm") }}Sign out</button></form>
+      </div>
+    </details>
+    {% endif %}
   </div>
-  {% endif %}
 </header>
+{% if batchbar %}
+<nav class="batchbar" aria-label="My batches"><div class="batchbar-in">
+  {% if batchbar.batches|length > 1 %}<a href="/" class="batchbar-home {% if batchbar.home %}on{% endif %}"{% if batchbar.home %} aria-current="page"{% endif %}>{{ icon("i-grid", "sm") }}Overview</a>{% endif %}
+  <span class="batchbar-label">Batches</span>
+  {% for b in batchbar.batches %}<a href="{{ b.href }}" class="{% if b.on %}on{% endif %}" title="{{ b.where }}"{% if b.on %} aria-current="page"{% endif %}>{{ b.label }}</a>{% else %}<span class="muted small">none yet</span>{% endfor %}
+  <a href="/team" class="batchbar-team {% if batchbar.team %}on{% endif %}">{{ icon("i-pulse", "sm") }}Team progress</a>
+</div></nav>
+{% endif %}
 <div class="shell">
   {% if nav %}
-  <nav class="side" aria-label="Main">
+  <nav class="side" id="side-menu" aria-label="Monitoring">
     {% for section, items in nav %}
     {% if section %}<div class="side-label">{{ section }}</div>{% endif %}
     {% for label, href, ico, on in items %}<a href="{{ href }}" class="{% if on %}on{% endif %}">{{ icon(ico) }}<span>{{ label }}</span></a>{% endfor %}
     {% endfor %}
+    <div class="side-foot"><a href="/settings" class="{% if area == 'settings' %}on{% endif %}"{% if area != 'settings' %} data-settings-open{% endif %}>{{ icon("i-settings") }}<span>Settings</span></a></div>
   </nav>
   {% endif %}
+  {% if nav %}<div class="nav-backdrop" data-nav-close></div>{% endif %}
   <main class="content">
-    {% if local_mode() %}<div class="local-note">Local mode: fake AWS on this laptop. Nothing is kept after the server stops.</div>{% endif %}
+    {% if settingsbar %}<nav class="settingsbar" aria-label="Settings">
+      <a class="settingsbar-home{% if req.path == '/settings' %} on{% endif %}" href="/settings">{{ icon("i-settings", "sm") }}Settings</a>
+      {% for label, href, ico, on in settingsbar %}<a href="{{ href }}" class="{% if on %}on{% endif %}"{% if on %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    </nav>{% endif %}
+    {% if trail %}<nav class="trail" aria-label="You are here"><ol>
+      {% for label, href in trail if href %}<li><a href="{{ href }}">{{ label }}</a></li>{% endfor %}
+    </ol></nav>{% endif %}
     {% if flash %}<div class="flash {{ flash.kind }}" role="status">{{ flash.message }}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>
+{% if settings_groups and not embed %}
+<div class="so-settings" id="so-settings" role="dialog" aria-modal="true" aria-label="Settings" hidden>
+  <div class="so-settings-box">
+    <aside class="so-settings-nav">
+      <div class="so-settings-title">{{ icon("i-settings") }}Settings</div>
+      {% for group, items in settings_groups %}
+      <div class="so-settings-group">{{ group }}</div>
+      {% for label, href, ico in items %}<a href="{{ href }}" data-settings-link>{{ icon(ico, "sm") }}<span>{{ label }}</span></a>{% endfor %}
+      {% endfor %}
+    </aside>
+    <section class="so-settings-main">
+      <button class="so-settings-close" type="button" data-settings-close aria-label="Close settings" title="Close (Esc)">{{ icon("i-x") }}</button>
+      <iframe class="so-settings-frame" title="Settings" data-src="/admin/institutions"></iframe>
+    </section>
+  </div>
+</div>
+{% endif %}
 <script src="{{ static('app.js') }}" defer></script>
 </body>
 </html>

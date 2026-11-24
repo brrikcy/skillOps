@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty, view_only %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ live_data_name() }}</h1><p class="sub">The feeds students fetch from: running or paused, the data clock, and the rows of each dataset.</p></div>
+  <div class="actions"><a class="btn sm ghost" href="/docs" target="_blank" rel="noopener">Developer docs</a>{{ view_only("/admin/live") }}</div>
+</div>
+{% if error %}<div class="flash bad">{{ error }}</div>{% endif %}
+{% for f in feeds %}
+<div class="card">
+  <div class="card-head"><h2>{{ icon("i-db") }} {{ f.feed }}</h2><span class="badge {% if f.status == 'running' %}teal{% elif f.status == 'paused' %}warn{% endif %}">{{ f.status }}</span></div>
+  <div class="card-body">
+    <div class="stats" style="margin-bottom:12px">
+      <div class="stat"><div class="label">Current data time</div><div class="value" style="font-size:1.05rem">{{ f.data_time_now or "not started" }}</div></div>
+      <div class="stat"><div class="label">Go-live</div><div class="value" style="font-size:1.05rem">{{ f.go_live_local or f.go_live or "—" }}</div></div>
+      <div class="stat"><div class="label">Speed</div><div class="value" style="font-size:1.05rem">{{ f.speed }}× </div><div class="foot">data hours per real hour</div></div>
+    </div>
+    <div class="table-wrap"><table class="table small">
+      <thead><tr><th>Dataset</th><th>Active</th><th class="num">Rows</th><th class="num">Released now</th><th>Version</th></tr></thead>
+      <tbody>
+      {% for d in f.datasets %}
+      <tr><td><code>{{ d.dataset }}</code></td><td>{% if d.active %}<span class="badge teal">yes</span>{% else %}<span class="badge grey">no</span>{% endif %}</td>
+        <td class="num">{{ "{:,}".format(d.rows_total or 0) }}</td><td class="num">{{ "{:,}".format(d.rows_released or 0) }}</td><td>{{ d.version }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+</div>
+{% else %}
+<div class="card">{{ empty("i-db", "No feed is loaded yet", "Data is uploaded in Settings › Live Data Simulator.") }}</div>
+{% endfor %}
+{% if imports %}
+<div class="card flush">
+  <div class="card-head"><h2>{{ icon("i-upload") }} Recent uploads</h2></div>
+  <div class="table-wrap"><table class="table small"><tbody>
+    {% for i in imports %}<tr><td>{{ i.filename }}<div class="muted">{{ i.at|when }}</div></td>
+      <td class="right"><span class="badge {% if i.status == 'done' %}teal{% elif i.status == 'failed' %}red{% elif i.status == 'ready' %}warn{% endif %}">{{ i.status_text }}</span></td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+{% endif %}
+{% endblock %}

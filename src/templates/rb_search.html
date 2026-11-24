@@ -2,7 +2,7 @@
 {% from "_ui.html" import icon, empty %}
 {% block content %}
 <div class="page-head">
-  <div><div class="eyebrow"><a href="/b/{{ bc.batch.id }}">{{ bc.batch.name }}</a> › <a href="{{ base }}">{{ proj.name }}</a></div><h1>Search the runbook</h1></div>
+  <div><h1>Search the runbook</h1></div>
 </div>
 <form method="get" action="{{ base }}/search" class="form-row card" style="padding:14px 18px">
   <label>Words to find<input type="search" name="q" value="{{ words }}" autofocus maxlength="80"></label>

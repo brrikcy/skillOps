@@ -146,8 +146,11 @@ def test_pages_still_load_when_the_test_system_is_down(fake_system, monkeypatch)
     assert t.get(f"/b/{ids['A']}")["statusCode"] == 200
     b = Browser()
     b.sign_in_local("boss@robomy.test")
-    d = b.get("/dashboard?programme=all&institution=all")
-    assert d["statusCode"] == 200 and "not available" in body(d)
+    assert b.get("/dashboard")["statusCode"] == 200
+    d = b.get("/dashboard?format=csv")                      # the download carries the test figures
+    import base64
+    csv_text = base64.b64decode(d["body"]).decode("utf-8-sig") if d.get("isBase64Encoded") else body(d)
+    assert d["statusCode"] == 200 and "not available" in csv_text
     h = b.get("/health")
     assert h["statusCode"] == 200 and "MCQ test system: DBI Skill Park" in body(h) and "Not working" in body(h)
 

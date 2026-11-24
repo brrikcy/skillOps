@@ -3,31 +3,30 @@
 {% block content %}
 {% include "_batch_tabs.html" %}
 {% set bid = page.batch.id %}
-<p class="muted" style="margin-top:-6px">Tools that turn what is taught into practice and proof: students work with live business data, and MCQ tests show what they have learnt.</p>
 <div class="grid two">
   <div class="card"><div class="card-body tool-card">
     <div style="display:flex;gap:12px;align-items:center"><span class="tool-icon">{{ icon("i-db") }}</span>
-      <div><h2>{{ live_data_name() }}</h2><div class="muted small">A database that grows while the business runs. Students fetch new rows with their own Python code.</div></div></div>
+      <div><h2>{{ live_data_name() }}</h2><div class="muted small">Live business data students fetch with Python.</div></div></div>
     {% if live %}
-    <div class="stats" style="grid-template-columns:repeat(3,1fr);margin:0">
-      <div><div class="muted small">Registered</div><div style="font-size:1.5rem;font-weight:700">{{ live.registered }}</div></div>
-      <div><div class="muted small">Have fetched</div><div style="font-size:1.5rem;font-weight:700">{{ live.fetched }}</div></div>
-      <div><div class="muted small">Waiting approval</div><div style="font-size:1.5rem;font-weight:700">{{ live.pending }}</div></div>
+    <div class="tool-stats">
+      <div><div class="muted small">Registered</div><div class="tool-num">{{ live.registered }}</div></div>
+      <div><div class="muted small">Have fetched</div><div class="tool-num">{{ live.fetched }}</div></div>
+      <div><div class="muted small">Waiting approval</div><div class="tool-num">{{ live.pending }}</div></div>
     </div>
     {% if live.open_codes %}<div class="small">Open join code: {% for c in live.open_codes %}<code style="font-size:1rem">{{ c.code }}</code> {% endfor %} · students register at <code>{{ base_url }}/register</code></div>
     {% else %}<div class="small muted">No join code is open. Make one when the class is ready to register.</div>{% endif %}
-    {% else %}<div class="flash bad">Live data is not answering. Everything else works.</div>{% endif %}
+    {% else %}<div class="flash bad">The Live Data Simulator is not answering. Everything else works.</div>{% endif %}
     <div class="btn-row"><a class="btn primary" href="/b/{{ bid }}/live">Open {{ live_data_name() }}</a><a class="btn ghost" href="/docs" target="_blank" rel="noopener">Developer docs</a></div>
   </div></div>
 
   <div class="card"><div class="card-body tool-card">
     <div style="display:flex;gap:12px;align-items:center"><span class="tool-icon">{{ icon("i-test") }}</span>
-      <div><h2>MCQ tests</h2><div class="muted small">Weekly tests from the institution's MCQ system: open a test, watch it live, see the marks.</div></div></div>
+      <div><h2>MCQ tests</h2><div class="muted small">Open a test, watch it live, see the marks.</div></div></div>
     {% if mcq %}
-    <div class="stats" style="grid-template-columns:repeat(3,1fr);margin:0">
-      <div><div class="muted small">Open now</div><div style="font-size:1.5rem;font-weight:700">{{ (mcq.open or [])|length }}</div></div>
-      <div><div class="muted small">Tests with results</div><div style="font-size:1.5rem;font-weight:700">{{ (mcq.tests or [])|length }}</div></div>
-      <div><div class="muted small">Latest average</div><div style="font-size:1.5rem;font-weight:700">{% if mcq.latest %}{{ mcq.latest.average }}%{% else %}—{% endif %}</div></div>
+    <div class="tool-stats">
+      <div><div class="muted small">Open now</div><div class="tool-num">{{ (mcq.open or [])|length }}</div></div>
+      <div><div class="muted small">Tests with results</div><div class="tool-num">{{ (mcq.tests or [])|length }}</div></div>
+      <div><div class="muted small">Latest average</div><div class="tool-num">{% if mcq.latest %}{{ mcq.latest.average }}%{% else %}—{% endif %}</div></div>
     </div>
     {% if mcq.open %}<div class="small">Open: {% for t in mcq.open %}<a href="/b/{{ bid }}/mcq/monitor/{{ t.id }}">{{ t.id }} · monitor</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
     {% else %}<div class="flash warn">{{ mcq_problem }}</div>{% endif %}

@@ -45,5 +45,12 @@ def require_batch(staff, batch_id):
     return b
 
 
+def require_trainer(staff):
+    """Marking runbook items (and planning sessions) is the batch trainers' work. The supervisor views."""
+    if staff.is_super:
+        raise Forbidden("Supervisors can view the runbook but not mark it.",
+                        "The batch's trainers mark items as they teach.")
+
+
 def visible_scope(staff):
     return org.scope(None if staff.is_super else staff.batch_ids)

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, bar, empty %}
+{% block content %}
+{% include "_batch_tabs.html" %}
+{% set bid = page.batch.id %}
+{% set with_rb = d.projects|selectattr("s")|list %}
+{% set finished = namespace(n=0, done=0, total=0) %}
+{% for p in with_rb %}{% set finished.done = finished.done + p.s.done %}{% set finished.total = finished.total + p.s.total %}{% if p.s.total and p.s.done >= p.s.total %}{% set finished.n = finished.n + 1 %}{% endif %}{% endfor %}{% for p in d.projects if not p.s and p.manual %}{% set finished.n = finished.n + 1 %}{% endfor %}
+
+<div class="stats">
+  <div class="stat"><div class="label">{{ icon("i-steps", "sm") }}Projects finished</div><div class="value">{{ finished.n }} / {{ d.projects|length }}</div><div class="foot">{{ d.projects|length - with_rb|length }} without a runbook</div></div>
+  <div class="stat"><div class="label">{{ icon("i-pulse", "sm") }}Overall</div><div class="value">{{ pct(finished.done, finished.total) }}%</div><div class="foot">{{ finished.done }} of {{ finished.total }} items</div></div>
+  <div class="stat"><div class="label">{{ icon("i-user", "sm") }}Trainers</div><div class="value">{{ d.trainers|length }}</div><div class="foot">{% for t in d.trainers %}{{ t.name }}{% if not loop.last %}, {% endif %}{% else %}none yet{% endfor %}</div></div>
+</div>
+
+<div class="card flush">
+  <div class="card-head"><h2>{{ icon("i-steps") }} Projects</h2><span class="muted small">in teaching order</span>
+    <div class="actions"><a class="btn sm ghost" href="/b/{{ bid }}?view=detail">Detailed progress</a></div></div>
+  {% if d.projects %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th style="width:44px">#</th><th>Project</th><th style="min-width:220px">Progress</th><th>Status</th><th>Last marked</th></tr></thead>
+    <tbody>
+    {% for p in d.projects %}{% set s = p.s %}{% set is_cur = d.current and p.project.id == d.current.project.id %}
+    {% set complete = (s and s.total and s.done >= s.total) or (not s and p.manual) %}
+    <tr>
+      <td class="muted">{{ loop.index }}</td>
+      <td>{% if s %}<a href="/b/{{ bid }}/p/{{ p.project.id }}/read" data-popup><strong>{{ p.project.name }}</strong></a>{% else %}<strong>{{ p.project.name }}</strong>{% endif %}
+        {% if is_cur %} <span class="badge brand">Current</span>{% endif %}
+        {% if s and s.position %}<div class="muted small">furthest: {{ s.position }}</div>{% endif %}</td>
+      <td>{% if s %}{{ bar(s.done, s.total, teal=complete) }}<div class="muted small" style="margin-top:4px">{{ s.done }} / {{ s.total }} items</div>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{% if complete %}<span class="badge teal">Complete</span>{% elif not s %}<span class="badge grey">No runbook</span>{% elif s.done %}<span class="badge brand">In progress</span>{% else %}<span class="badge grey">Not started</span>{% endif %}</td>
+      <td class="small nowrap">{% if s and s.last %}{{ s.last.at|when }}<div class="muted">{{ s.last.by_name }}</div>{% elif p.manual %}{{ p.manual.at|when }}<div class="muted">{{ p.manual.by_name }}</div>{% else %}<span class="muted">—</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}{{ empty("i-steps", "No projects yet", "Add projects to this batch's course under Courses.") }}{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{# The four steps of putting a runbook in: shown on the mapping, preview and version pages. step = 1..4 #}
+<ol class="wizard" aria-label="Steps">
+  {% for label in ["Upload the Word file", "Confirm the structure", "Check the tree", "Publish"] %}
+  {% set n = loop.index %}
+  <li class="{% if n < step %}done{% elif n == step %}on{% endif %}">
+    {% if n == 2 and step != 2 and v %}<a href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/map">{% elif n == 3 and step != 3 and v and v.status in ("mapping", "published") %}<a href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/preview">{% else %}<span>{% endif %}
+    <b>{% if n < step %}✓{% else %}{{ n }}{% endif %}</b>{{ label }}
+    {% if (n == 2 and step != 2 and v) or (n == 3 and step != 3 and v and v.status in ("mapping", "published")) %}</a>{% else %}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ol>

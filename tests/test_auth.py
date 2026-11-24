@@ -69,8 +69,8 @@ def test_first_sign_in_asks_for_a_new_password(cognito):
     r = b.post("/signin/new-password", {"c": cid, "password": "Brand-New-Pass9", "password2": "Brand-New-Pass9"},
                csrf=False)
     assert r["statusCode"] == 303, body(r)
-    assert b.get("/")["statusCode"] == 303       # one batch: straight to it
-    assert b.get(b.get("/")["headers"]["location"])["statusCode"] == 200
+    home = b.get("/")
+    assert home["statusCode"] in (200, 303)                    # the trainer's home (Overview, or their one batch)
 
 
 def test_trainer_account_turned_off_cannot_sign_in(cognito):

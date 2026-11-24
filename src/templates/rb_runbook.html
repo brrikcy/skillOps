@@ -2,8 +2,8 @@
 {% from "_ui.html" import icon, empty %}
 {% block content %}
 <div class="page-head">
-  <div><div class="eyebrow"><a href="/admin/runbooks">Runbooks</a></div><h1>{{ rb.name }}</h1>
-    <p class="sub">{% if used_by %}Used by: {% for u in used_by %}{{ u.programme.name }} › {{ u.project.name }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}Not used by any project yet. Choose it on a programme's page.{% endif %}</p></div>
+  <div><h1>{{ rb.name }}</h1>
+    <p class="sub">{% if used_by %}Used by: {% for u in used_by %}{{ u.course.name }} › {{ u.project.name }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}Not used by any project yet. Choose it for a project on its course's page (Courses).{% endif %}</p></div>
   {% if busy %}<div class="actions"><a class="btn" href="/admin/runbooks/{{ rb.id }}">{{ icon("i-refresh") }}Refresh</a></div>{% endif %}
 </div>
 
@@ -24,19 +24,32 @@
   <div class="card-head"><h2>Versions</h2></div>
   {% if versions %}
   <div class="table-wrap"><table class="table">
-    <thead><tr><th>Version</th><th>File</th><th>Status</th><th class="num">Items</th><th>Matching</th><th></th></tr></thead>
+    <thead><tr><th>Version</th><th>File</th><th>Runbook PDF</th><th>Status</th><th class="num">Items</th><th>Matching</th><th></th></tr></thead>
     <tbody>
     {% for v in versions %}
     <tr>
       <td><strong>v{{ v.number }}</strong>{% if v.id == rb.latest %} <span class="badge teal">current</span>{% endif %}<div class="muted small">{{ v.uploaded_at|when }}</div></td>
       <td class="small">{{ v.filename }}<div class="muted">{{ (v.size / 1048576)|round(1) }} MB</div></td>
+      <td class="small">
+        {% if v.pdf_name %}<strong>{{ v.pdf_name }}</strong><div class="muted">{{ (v.pdf_size / 1048576)|round(1) }} MB · {{ v.pdf_pages }} pages</div>
+        <div class="{% if v.pdf_total and v.pdf_found < v.pdf_total %}warn-text{% else %}muted{% endif %}">{{ v.pdf_message }}</div>{% endif %}
+        {% if v.pdf_upload %}<form method="post" action="{{ v.pdf_upload.action }}" enctype="multipart/form-data" class="inline" {% if v.pdf_upload.direct %}data-plain{% endif %}>
+          {% if v.pdf_upload.direct %}{% for k, val in v.pdf_upload.fields.items() %}<input type="hidden" name="{{ k }}" value="{{ val }}">{% endfor %}{% else %}{% include "_guard.html" %}{% endif %}
+          <label class="sr" for="pdf-{{ v.id }}">Runbook PDF for version {{ v.number }}</label>
+          <input id="pdf-{{ v.id }}" type="file" name="file" accept=".pdf,application/pdf" required>
+          <button class="btn sm" type="submit">{% if v.pdf_name %}Replace{% else %}Attach PDF{% endif %}</button></form>
+        {% if not v.pdf_name %}<div class="muted">The runbook saved as PDF from Word. Session PDFs are cut from it, in its own look.</div>{% endif %}
+        {% elif not v.pdf_name %}<span class="muted">—</span>{% endif %}
+      </td>
       <td><span class="badge {% if v.status == 'published' %}teal{% elif v.status == 'failed' %}red{% elif v.status == 'mapping' %}warn{% endif %}">{{ v.status_text }}</span>
         <div class="muted small">{{ v.message }}</div></td>
       <td class="num">{{ v.counts.get(v.checkable|string, "—") }}</td>
       <td class="small">{% if v.unmatched is not none %}{% if v.unmatched %}<details><summary>{{ v.unmatched|length }} item(s) of v{{ v.compared_with }} not matched</summary><ul>{% for n in v.unmatched[:40] %}<li>{{ n.title }}</li>{% endfor %}</ul><p class="muted">Ticks on these stay on the old version when a batch moves.</p></details>{% else %}<span class="badge teal">all items of v{{ v.compared_with }} matched</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
       <td class="nowrap right">
         {% if v.status in ("mapping", "published") %}<a class="btn sm" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/map">Map</a> <a class="btn sm" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/preview">Preview</a>{% endif %}
-        {% if v.status == "published" %}<a class="btn sm ghost" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/view">View</a>{% endif %}
+        {% if v.status == "published" %}<a class="btn sm ghost" href="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/view" data-popup>View</a>{% endif %}
+        {% if not v.blockers %}<form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/delete" class="inline">{% include "_guard.html" %}<button class="btn sm ghost danger-text" type="submit" title="Delete this upload" aria-label="Delete version {{ v.number }}" data-confirm="Delete version {{ v.number }} ({{ v.filename }})? Its uploaded file and published pages are removed. This cannot be undone from SkillOps.">{{ icon("i-x", "sm") }}</button></form>
+        {% else %}<span class="muted small" title="Cannot delete: {{ v.blockers|join('; ') }}">in use</span>{% endif %}
       </td>
     </tr>
     {% endfor %}
@@ -64,4 +77,19 @@
   </table></div>
 </div>
 {% endif %}
+
+<div class="card">
+  <div class="card-head"><h2>{{ icon("i-x") }} Delete this runbook</h2></div>
+  <div class="card-body">
+    {% if rb_blockers %}
+    <p class="muted small">It cannot be deleted while it is in use: {{ rb_blockers|join("; ") }}. Choose another runbook for those projects first. Versions that batches have ticked stay, as their history.</p>
+    {% else %}
+    <p class="muted small">No project uses it and no batch has marked it. Deleting removes the runbook, all {{ versions|length }} uploaded version(s), their pages and images.</p>
+    <form method="post" action="/admin/runbooks/{{ rb.id }}/delete" class="form-row">{% include "_guard.html" %}
+      <label>Type the name to confirm<input name="confirm_name" required maxlength="100" placeholder="{{ rb.name }}" autocomplete="off"></label>
+      <button class="btn danger" type="submit" data-confirm="Delete {{ rb.name }} and every uploaded version? This cannot be undone from SkillOps.">Delete runbook</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}

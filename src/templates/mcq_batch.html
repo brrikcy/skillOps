@@ -14,7 +14,7 @@
 </div>
 
 <div class="card flush">
-  <div class="card-head"><h2>Tests for this batch</h2><a class="actions btn sm" href="/b/{{ bid }}/mcq/register">{{ icon("i-list", "sm") }}Marks register</a></div>
+  <div class="card-head"><h2>Tests for this batch</h2><a class="actions btn sm" href="{{ bbase }}/mcq/register">{{ icon("i-list", "sm") }}Marks register</a></div>
   {% if tests %}
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Test</th><th class="num">Questions</th><th class="num">Minutes</th><th>Status</th><th></th></tr></thead>
@@ -25,10 +25,10 @@
       <td class="num">{{ t.questions }}</td><td class="num">{{ t.duration }}</td>
       <td>{% if t.active %}<span class="badge teal">open</span>{% else %}<span class="badge grey">closed</span>{% endif %}</td>
       <td class="right nowrap">
-        <form method="post" action="/b/{{ bid }}/mcq/tests/{{ t.id }}/active" class="inline">{% include "_guard.html" %}<input type="hidden" name="active" value="{{ '0' if t.active else '1' }}">
-          <button class="btn sm {% if not t.active %}primary{% endif %}" type="submit" data-confirm="{{ 'Close' if t.active else 'Open' }} test {{ t.id }} for students?">{{ "Close" if t.active else "Open" }}</button></form>
-        <a class="btn sm" href="/b/{{ bid }}/mcq/monitor/{{ t.id }}">{{ icon("i-pulse", "sm") }}Monitor</a>
-        <a class="btn sm ghost" href="/b/{{ bid }}/mcq/results/{{ t.id }}">Results</a>
+        {% if can_edit %}<form method="post" action="{{ bbase }}/mcq/tests/{{ t.id }}/active" class="inline">{% include "_guard.html" %}<input type="hidden" name="active" value="{{ '0' if t.active else '1' }}">
+          <button class="btn sm {% if not t.active %}primary{% endif %}" type="submit" data-confirm="{{ 'Close' if t.active else 'Open' }} test {{ t.id }} for students?">{{ "Close" if t.active else "Open" }}</button></form>{% endif %}
+        <a class="btn sm" href="{{ bbase }}/mcq/monitor/{{ t.id }}">{{ icon("i-pulse", "sm") }}Monitor</a>
+        <a class="btn sm ghost" href="{{ bbase }}/mcq/results/{{ t.id }}">Results</a>
       </td>
     </tr>
     {% endfor %}
@@ -37,11 +37,11 @@
   {% else %}{{ empty("i-test", "No tests for this batch yet", "Import questions below to make a test.") }}{% endif %}
 </div>
 
-<div class="grid two">
+{% if can_edit %}<div class="grid two">
   <div class="card">
     <div class="card-head"><h2>{{ icon("i-upload") }} Import questions</h2></div>
     <div class="card-body">
-      <form method="post" action="/b/{{ bid }}/mcq/import" enctype="multipart/form-data">{% include "_guard.html" %}
+      <form method="post" action="{{ bbase }}/mcq/import" enctype="multipart/form-data">{% include "_guard.html" %}
         <div class="form-row">
           <label>Test ID<input name="test_id" required maxlength="30" placeholder="for example W03"></label>
           <label>When the test has questions<select name="mode"><option value="add">Add to them</option><option value="replace">Replace them</option></select></label>
@@ -54,7 +54,7 @@
   <div class="card">
     <div class="card-head"><h2>{{ icon("i-refresh") }} Allow a re-attempt</h2></div>
     <div class="card-body">
-      <form method="post" action="/b/{{ bid }}/mcq/reattempt">{% include "_guard.html" %}
+      <form method="post" action="{{ bbase }}/mcq/reattempt">{% include "_guard.html" %}
         <div class="form-row">
           <label>Test ID<input name="test_id" required maxlength="30"></label>
           <label>Student email<input type="email" name="email" required></label>
@@ -64,6 +64,6 @@
       {% if links.monitorUrl %}<p class="muted small" style="margin-top:12px">Staff only: <a href="{{ links.monitorUrl }}" target="_blank" rel="noopener">the MCQ system's own monitor</a> (do not share this link).</p>{% endif %}
     </div>
   </div>
-</div>
+</div>{% endif %}
 {% endif %}
 {% endblock %}

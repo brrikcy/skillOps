@@ -25,29 +25,42 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "src"))
 
 PROJECTS = ["IPL", "Airtel", "HDFC", "Uber", "Apollo", "IRCTC", "Coursera"]
+# the sample runbook (.docx; the same runbook saved as .pdf beside it is attached too): set SKILLOPS_SAMPLE_RUNBOOK to its path
 SAMPLE_RUNBOOK = os.environ.get("SKILLOPS_SAMPLE_RUNBOOK", "")
+
+
+COURSES = {"Data Analytics": PROJECTS[:4], "Business Case Studies": PROJECTS[4:]}
 
 
 def seed_org(say=print):
     from skillops.core import org
+    courses = {}
+    for cname, projects in COURSES.items():             # Robomy's catalogue
+        cid = courses[cname] = org.create_course(cname)
+        for name in projects:
+            org.add_project(cid, name)
     i1 = org.create_institution("DBI Skill Park", "DBI")
     p1 = org.create_programme(i1, "DBI OJT Sem 3 - Data Analyst")
-    for name in PROJECTS:
-        org.add_project(p1, name)
+    org.set_programme_courses(p1, list(courses.values()))          # both courses: all 7 projects
     batches = {}
     for n, letter in enumerate("ABC", start=1):
         bid = org.create_batch(p1, f"Batch {letter}", letter)
         batches[letter] = bid
         email = f"trainer{n}@local.test"
-        org.create_trainer(email, f"Trainer {n}")
+        org.create_trainer(email, f"Trainer {n}", i1)
         org.associate(email, bid)
     i2 = org.create_institution("Sample Training Centre", "STC")
     p2 = org.create_programme(i2, "Data Analyst Foundation")
-    org.add_project(p2, "Airtel")
+    airtel = next(j for j in org.course_projects(courses["Data Analytics"]) if j["name"] == "Airtel")
+    org.add_programme_project(p2, airtel["id"])                    # one project from a course it does not take
     b2 = org.create_batch(p2, "Weekend Batch", "WEEKEND")
-    org.associate("trainer1@local.test", b2)        # Trainer 1 teaches at both institutions
-    say("Created DBI Skill Park (7 projects, batches A, B, C, one trainer each) and Sample Training Centre (1 batch).")
-    return {"i1": i1, "p1": p1, "i2": i2, "p2": p2, "b2": b2, **batches}
+    org.add_trainer_to_institution("trainer1@local.test", i2)     # Trainer 1 works with both institutions
+    org.associate("trainer1@local.test", b2)
+    org.create_trainer("trainer4@local.test", "Trainer 4", i2)
+    org.associate("trainer4@local.test", b2)
+    say("Created Robomy's courses (Data Analytics: 4 projects, Business Case Studies: 3), DBI Skill Park "
+        "(batches A, B, C, one trainer each) and Sample Training Centre (1 batch).")
+    return {"i1": i1, "p1": p1, "i2": i2, "p2": p2, "b2": b2, "courses": courses, **batches}
 
 
 def seed_runbook(ids, path=SAMPLE_RUNBOOK, say=print):
@@ -69,13 +82,20 @@ def seed_runbook(ids, path=SAMPLE_RUNBOOK, say=print):
         service.publish(vid, "demo")
     finally:
         jobs.INLINE = False
+    pdf_path = os.path.splitext(path)[0] + ".pdf"                  # the runbook saved as PDF, if it is beside the Word file
+    if os.path.exists(pdf_path):
+        try:
+            with open(pdf_path, "rb") as f:
+                service.attach_pdf(vid, os.path.basename(pdf_path), f.read(), "demo")      # matched in the background
+            say("Runbook PDF attached (session PDFs are cut from it; it is matched to the pages in the background).")
+        except Exception as e:  # noqa: BLE001
+            say(f"(The runbook PDF was not attached: {e})")
     v = service.get_version(vid)
     counts = v["counts"]
     say(f"Runbook 'Airtel' v1 published: {counts.get('1')} steps, {counts.get('2')} parts, {counts.get('3')} actions, "
         f"{counts.get('4')} sub-steps.")
-    for pid in (ids["p1"], ids["p2"]):
-        proj = next(j for j in org.list_projects(pid) if j["name"] == "Airtel")
-        org.set_project_runbook(pid, proj["id"], rid)
+    proj = next(j for j in org.list_projects(ids["p1"]) if j["name"] == "Airtel")
+    org.set_project_runbook(proj["id"], rid)                      # one project, used by both programmes
     # A few ticks for Batch A: everything up to 0.3, plus 1A.1 and 1A.2.
     from skillops.core.perms import Staff
     trainer = Staff("trainer1@local.test", "trainer", "Trainer 1", {ids["A"]})
@@ -133,7 +153,37 @@ def seed_all(say=print, runbook=SAMPLE_RUNBOOK):
     seed_runbook(ids, runbook, say)
     seed_mcq(ids, say)
     seed_live(ids, say)
+    seed_schedule(ids, say)
     return ids
+
+
+def seed_schedule(ids, say=print):
+    """Batch A meets on Monday, Tuesday and Thursday; today's session is planned (when Airtel has a runbook)."""
+    from datetime import date, timedelta
+
+    from skillops import classdays, planner
+    from skillops.core import org
+    from skillops.core.perms import Staff
+    from skillops.runbook import progress, service
+    today = date.today()
+    classdays.save(ids["A"], {"start": (today - timedelta(days=30)).isoformat(),
+                              "end": (today + timedelta(days=120)).isoformat(), "off": "", "extra": today.isoformat()},
+                   ["0", "1", "3"])
+    b = org.get_batch(ids["A"])
+    proj = next((j for j in org.list_projects(b["prog_id"]) if j.get("runbook_id")), None)
+    vid = progress.batch_version(b, proj, pin=False) if proj else None
+    if not vid:
+        say("Class days set for Batch A (Mon, Tue, Thu).")
+        return
+    summ = progress.summary(ids["A"], vid)
+    nxt = summ["next_up"]
+    cks = summ["pub"]["checkables"]
+    k = next((i for i, n in enumerate(cks) if nxt and n["id"] == nxt["id"]), 0)
+    entries = [{"kind": "item", "proj": proj["id"], "node": n["id"]} for n in cks[k:k + 4]]
+    entries.insert(min(2, len(entries)), {"kind": "text", "text": "Short break"})
+    t1 = Staff("trainer1@local.test", "trainer", "Trainer 1", {ids["A"]})
+    planner.save(ids["A"], today.isoformat(), entries, "Bring the HDMI cable", 0, t1)
+    say("Class days set for Batch A (Mon, Tue, Thu), and today's session is planned.")
 
 
 def main():

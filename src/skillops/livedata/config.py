@@ -1,4 +1,4 @@
-"""Settings for SkillOps Live Data (the live-data module). Everything comes from environment variables.
+"""Settings for Live Data Simulator (the live-data module). Everything comes from environment variables.
 
 In AWS, the SAM template sets these on each Lambda function.
 On your laptop (tests, demo, admin.py) they are set by the code that starts things.
@@ -15,7 +15,7 @@ def _int(name, default):
 
 def platform_name():
     """Name of the live-data module (shown in API answers). Change LIVE_DATA_NAME to rename it."""
-    return os.environ.get("LIVE_DATA_NAME", "SkillOps Live Data")
+    return os.environ.get("LIVE_DATA_NAME", "Live Data Simulator")
 
 
 def table(name):

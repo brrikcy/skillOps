@@ -2,7 +2,7 @@
 {% from "_ui.html" import icon, empty %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Export everything</h1><p class="sub">One .zip with every institution, programme, project, batch, trainer, link, tick, note, live-data student and audit line — as CSV for Excel and JSON for a full restore.</p></div>
+  <div><h1>Export everything</h1><p class="sub">Everything in one .zip: CSV to read in Excel, JSON for a full restore.</p></div>
   <div class="actions"><form method="post" action="/admin/export">{% include "_guard.html" %}<button class="btn primary" type="submit">{{ icon("i-download") }}Start a new export</button></form></div>
 </div>
 <div class="card flush">

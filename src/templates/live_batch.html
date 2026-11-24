@@ -5,7 +5,7 @@
 {% set bid = page.batch.id %}
 {% if error %}<div class="flash bad">{{ error }}</div>{% endif %}
 {% if new_key %}
-<div class="card" style="border-left:4px solid var(--red)">
+<div class="card card-accent">
   <div class="card-head"><h2>{{ icon("i-key") }} New API key for {{ new_key.name }}</h2></div>
   <div class="card-body">
     <div class="flash warn">This key is shown only once. Give it to the student now. Their old key no longer works.</div>
@@ -18,7 +18,7 @@
   <div>
     <div class="card flush">
       <div class="card-head"><h2>Students</h2><span class="badge">{{ rows|length }}</span>
-        {% if rows|selectattr("status", "equalto", "pending")|list %}<form method="post" action="/b/{{ bid }}/live/students" class="actions">{% include "_guard.html" %}<input type="hidden" name="action" value="approve_all"><button class="btn sm primary" type="submit">Approve all waiting</button></form>{% endif %}</div>
+        {% if can_edit and rows|selectattr("status", "equalto", "pending")|list %}<form method="post" action="{{ bbase }}/live/students" class="actions">{% include "_guard.html" %}<input type="hidden" name="action" value="approve_all"><button class="btn sm primary" type="submit">Approve all waiting</button></form>{% endif %}</div>
       {% if rows %}
       <div class="table-wrap"><table class="table">
         <thead><tr><th>Roll</th><th>Name</th><th>Status</th><th class="num">Fetches</th><th class="num">Rows</th><th>Last fetch</th><th></th></tr></thead>
@@ -26,17 +26,17 @@
         {% for s in rows %}
         <tr class="{% if s.errors %}row-warn{% endif %}">
           <td class="mono small">{{ s.roll }}</td>
-          <td><a href="/b/{{ bid }}/live/student?id={{ s.student_id|q }}">{{ s.name }}</a></td>
+          <td><a href="{{ bbase }}/live/student?id={{ s.student_id|q }}">{{ s.name }}</a></td>
           <td><span class="badge {% if s.status == 'active' %}teal{% elif s.status == 'pending' %}warn{% else %}grey{% endif %}">{{ s.status }}</span></td>
           <td class="num">{{ s.fetches }}</td><td class="num">{{ "{:,}".format(s.rows) }}</td>
           <td class="small">{{ s.last_fetch|when if s.last_fetch else "never" }}</td>
-          <td class="right nowrap">
-            <form method="post" action="/b/{{ bid }}/live/students" class="inline">{% include "_guard.html" %}<input type="hidden" name="student_id" value="{{ s.student_id }}">
+          <td class="right nowrap">{% if can_edit %}
+            <form method="post" action="{{ bbase }}/live/students" class="inline">{% include "_guard.html" %}<input type="hidden" name="student_id" value="{{ s.student_id }}">
               {% if s.status == "pending" %}<button class="btn sm" name="action" value="approve">Approve</button> <button class="btn sm ghost" name="action" value="reject">Reject</button>
               {% elif s.status == "active" %}<button class="btn sm ghost" name="action" value="disable" data-confirm="Turn off {{ s.name }}? Their key stops working.">Turn off</button>
               {% else %}<button class="btn sm ghost" name="action" value="enable">Turn on</button>{% endif %}
               <button class="btn sm ghost" name="action" value="reset_key" data-confirm="Make a new key for {{ s.name }}? The old key stops working.">{{ icon("i-key", "sm") }}New key</button>
-            </form>
+            </form>{% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -45,17 +45,17 @@
       {% else %}{{ empty("i-users", "No student has registered yet", "Make a join code and show it to the class.") }}{% endif %}
     </div>
 
+    {% if acts %}
     <div class="card flush">
       <div class="card-head"><h2>Fetch activity by dataset</h2></div>
-      {% if acts %}
       <div class="table-wrap"><table class="table small">
         <thead><tr><th>Student</th><th>Dataset</th><th class="num">Fetches</th><th class="num">Pages</th><th class="num">Rows</th><th>Last</th><th>Last error</th></tr></thead>
         <tbody>
         {% for a in acts %}<tr><td>{{ a.name }}</td><td><code>{{ a.dataset }}</code></td><td class="num">{{ a.fetches }}</td><td class="num">{{ a.pages }}</td><td class="num">{{ "{:,}".format(a.rows) }}</td><td>{{ a.last_fetch|when if a.last_fetch else "" }}</td><td class="muted">{{ a.last_error or "" }}</td></tr>{% endfor %}
         </tbody>
       </table></div>
-      {% else %}<div class="card-body muted small">No fetches yet.</div>{% endif %}
     </div>
+    {% endif %}
   </div>
 
   <div>
@@ -66,10 +66,10 @@
         <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)">
           <div><code style="font-size:1.05rem">{{ c.code }}</code> {% if c.open %}<span class="badge teal">open</span>{% else %}<span class="badge grey">closed</span>{% endif %}
             <div class="muted small">{{ c.uses }} / {{ c.max_uses }} used{% if c.approval %} · needs approval{% endif %}</div></div>
-          {% if c.open %}<form method="post" action="/b/{{ bid }}/live/codes/close">{% include "_guard.html" %}<input type="hidden" name="code" value="{{ c.code }}"><button class="btn sm ghost" type="submit">Close</button></form>{% endif %}
+          {% if c.open and can_edit %}<form method="post" action="{{ bbase }}/live/codes/close">{% include "_guard.html" %}<input type="hidden" name="code" value="{{ c.code }}"><button class="btn sm ghost" type="submit">Close</button></form>{% endif %}
         </div>
         {% else %}<p class="muted small">No join codes yet.</p>{% endfor %}
-        <form method="post" action="/b/{{ bid }}/live/codes" style="margin-top:14px">
+        {% if can_edit %}<form method="post" action="{{ bbase }}/live/codes" style="margin-top:14px">
           {% include "_guard.html" %}
           <div class="form-row">
             <label>Students<input type="number" name="max_uses" value="40" min="1" max="1000"></label>
@@ -77,7 +77,7 @@
           </div>
           <label class="check"><input type="checkbox" name="approval" value="1"> I approve each student</label>
           <button class="btn primary" type="submit">{{ icon("i-plus") }}Make a join code</button>
-        </form>
+        </form>{% endif %}
         <p class="muted small" style="margin-top:12px">Students register at <code>{{ base_url }}/register</code> and read the <a href="/docs" target="_blank" rel="noopener">Developer docs</a>.</p>
       </div>
     </div>

@@ -5,3 +5,14 @@ __pycache__/
 samconfig.toml
 local_data/
 *.pyc
+
+# logo options sheet (python tools/make_logo.py --variants)
+tools/logo-variants/
+
+# editor and agent settings, backups, design scratch
+.claude/
+.DS_Store
+*.bak
+tools/logo-concepts/
+tools/logo-variants/
+real_session_preview*.pdf

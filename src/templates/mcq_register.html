@@ -3,7 +3,7 @@
 {% block content %}
 {% include "_batch_tabs.html" %}
 <div class="card flush">
-  <div class="card-head"><h2>Marks register</h2><div class="actions"><a class="btn sm" href="/b/{{ page.batch.id }}/mcq">Back</a>{% if not problem %}<a class="btn sm" href="?format=csv">{{ icon("i-download", "sm") }}CSV</a>{% endif %}</div></div>
+  <div class="card-head"><h2>Marks register</h2><div class="actions"><a class="btn sm" href="{{ bbase }}/mcq">Back</a>{% if not problem %}<a class="btn sm" href="?format=csv">{{ icon("i-download", "sm") }}CSV</a>{% endif %}</div></div>
   {% if problem %}<div class="card-body"><div class="flash bad">{{ problem }}</div></div>
   {% elif data.rows %}
   <div class="table-wrap"><table class="table small">

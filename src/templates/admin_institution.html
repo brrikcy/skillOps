@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon, empty, archived_toggle %}
+{% from "_remove.html" import remove_card with context %}
 {% block content %}
 <div class="page-head">
-  <div><div class="eyebrow"><a href="/admin/institutions">Institutions</a></div>
-    <h1>{{ inst.name }} <span class="badge">{{ inst.code }}</span>{% if inst.archived %} <span class="badge grey">archived</span>{% endif %}</h1></div>
+  <div>
+    <h1>{{ inst.name }} <span class="badge">{{ inst.code }}</span>{% if inst.archived %} <span class="badge archived">archived</span>{% endif %}</h1></div>
   <div class="actions">{{ archived_toggle(show_archived, "/admin/institutions/" ~ inst.id) }}</div>
 </div>
+{% if inst.archived %}<div class="archived-banner">{{ icon("i-archive") }}This institution is archived, with its programmes and batches. Everything is kept.</div>{% endif %}
 <div class="grid side-main">
   <div>
     <div class="card flush">
@@ -15,7 +17,7 @@
         <thead><tr><th>Programme</th><th class="num">Projects</th><th class="num">Batches</th><th></th></tr></thead>
         <tbody>
         {% for p in programmes %}
-        <tr><td><a href="/admin/programmes/{{ p.id }}"><strong>{{ p.name }}</strong></a>{% if p.archived %} <span class="badge grey">archived</span>{% endif %}</td>
+        <tr class="{% if p.archived %}row-archived{% endif %}"><td><a href="/admin/programmes/{{ p.id }}"><strong>{{ p.name }}</strong></a>{% if p.archived %} <span class="badge archived">archived</span>{% endif %}</td>
           <td class="num">{{ p.project_count }}</td><td class="num">{{ p.batch_count }}</td><td class="right"><a class="btn sm" href="/admin/programmes/{{ p.id }}">Open</a></td></tr>
         {% endfor %}
         </tbody>
@@ -30,6 +32,37 @@
     </div>
   </div>
   <div>
+    <div class="card flush">
+      <div class="card-head"><h2>{{ icon("i-user") }} Trainers</h2><span class="muted small">{{ trainers|length }}</span></div>
+      {% if trainers %}
+      <div class="table-wrap"><table class="table small">
+        <tbody>
+        {% for t in trainers %}
+        <tr class="{% if not t.enabled %}row-archived{% endif %}"><td><a href="/admin/trainers/{{ t.email|q }}"><strong>{{ t.name }}</strong></a>{% if not t.enabled %} <span class="badge archived">turned off</span>{% endif %}
+            <div class="muted">{{ t.batches_here|join(", ") or "no batch here yet" }}</div></td>
+          <td class="right"><form method="post" action="/admin/institutions/{{ inst.id }}/trainers/remove" class="inline">{% include "_guard.html" %}<input type="hidden" name="email" value="{{ t.email }}"><button class="btn sm ghost" type="submit" data-confirm="Take {{ t.name }} off {{ inst.name }}? They are unlinked from its batches; their ticks are kept.">Remove</button></form></td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}<div class="card-body muted small">No trainers here yet. Add them below, then link them to batches.</div>{% endif %}
+      <div class="card-body" style="border-top:1px solid var(--line)">
+        {% if others %}
+        <form method="post" action="/admin/institutions/{{ inst.id }}/trainers">{% include "_guard.html" %}
+          <label>Add a trainer from the list<select name="email" required><option value="">Choose…</option>{% for t in others %}<option value="{{ t.email }}">{{ t.name }} ({{ t.email }})</option>{% endfor %}</select></label>
+          <button class="btn" type="submit">{{ icon("i-plus") }}Add</button>
+        </form>
+        {% endif %}
+        <details class="new-trainer"{% if not others %} open{% endif %}>
+          <summary class="small">Or add a new trainer</summary>
+          <form method="post" action="/admin/institutions/{{ inst.id }}/trainers">{% include "_guard.html" %}
+            <label>Name<input name="name" required maxlength="80"></label>
+            <label>Email<input type="email" name="email" required maxlength="120"></label>
+            <button class="btn primary" type="submit">{{ icon("i-plus") }}Add new trainer</button>
+            <p class="muted small" style="margin:6px 0 0">Cognito emails them a temporary password.</p>
+          </form>
+        </details>
+      </div>
+    </div>
     <div class="card">
       <div class="card-head"><h2>Details</h2></div>
       <div class="card-body">
@@ -44,24 +77,16 @@
       <div class="card-head"><h2>Logo</h2><span class="muted small">optional</span></div>
       <div class="card-body">
         <p class="muted small">Shown in the top bar on this institution's pages. PNG or JPEG under 300 KB.</p>
-        {% if inst.logo %}<p><img src="/{{ inst.logo }}" alt="Current logo" style="max-height:56px;border:1px solid var(--line);border-radius:6px;padding:4px;background:#fff"></p>{% endif %}
+        {% if inst.logo %}<p><img src="/{{ inst.logo }}" alt="Current logo" style="max-height:56px;border:1px solid var(--line);border-radius:6px;padding:4px;background:var(--surface)"></p>{% endif %}
         <form method="post" action="/admin/institutions/{{ inst.id }}/logo" enctype="multipart/form-data">{% include "_guard.html" %}
           <label>Logo file<input type="file" name="logo" accept="image/png,image/jpeg"></label>
           <div class="btn-row"><button class="btn" type="submit">Upload</button>{% if inst.logo %}<button class="btn ghost" type="submit" name="remove" value="1">Remove</button>{% endif %}</div>
         </form>
       </div>
     </div>
-    <div class="card">
-      <div class="card-head"><h2>Archive</h2></div>
-      <div class="card-body">
-        {% if inst.archived %}
-        <form method="post" action="/admin/institutions/{{ inst.id }}/unarchive">{% include "_guard.html" %}<button class="btn" type="submit">Make active again</button></form>
-        {% else %}
-        <p class="muted small">Hides this institution and everything in it from trainers. Nothing is deleted.</p>
-        <form method="post" action="/admin/institutions/{{ inst.id }}/archive">{% include "_guard.html" %}<button class="btn danger" type="submit" data-confirm="Archive {{ inst.name }}? Trainers will no longer see it.">{{ icon("i-archive") }}Archive</button></form>
-        {% endif %}
-      </div>
-    </div>
+    {{ remove_card("institution", inst.name, inst.archived, "/admin/institutions/" ~ inst.id,
+         "Hides it, with its programmes and batches, from trainers. Everything is kept.",
+         "Removes it with all its programmes, batches, ticks and plans, its MCQ connection and logo.") }}
   </div>
 </div>
 {% endblock %}

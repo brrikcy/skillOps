@@ -1,4 +1,4 @@
-"""Staff actions on SkillOps Live Data, used by the batch's Live data page and the supervisor's
+"""Staff actions on Live Data Simulator, used by the batch's Live data page and the supervisor's
 feeds page. (Ported from the old staff API; permissions are checked by the page before these run.)"""
 from . import catalog, clock as clk, feedops, store, students, timeutil
 
@@ -10,9 +10,18 @@ class LiveError(Exception):
 
 
 def batch_codes(batch_id):
+    """The batch's open join codes. Codes that have expired or are used up are removed as they are found."""
     now = timeutil.now_us()
-    codes = [students.code_view(c, now) for c in students.list_codes() if c["batch"] == batch_id]
-    return sorted(codes, key=lambda c: c.get("created_at") or "", reverse=True)
+    out = []
+    for c in students.list_codes():
+        if c["batch"] != batch_id:
+            continue
+        v = students.code_view(c, now)
+        if v["open"]:
+            out.append(v)
+        else:
+            students.close_code(c["code"])
+    return sorted(out, key=lambda c: c.get("created_at") or "", reverse=True)
 
 
 def create_code(batch_id, max_uses, open_minutes, approval, who):
@@ -130,3 +139,40 @@ def set_dataset_active(dataset, active):
     msgs = []
     feedops.set_active(dataset, active, timeutil.now_us(), say=msgs.append)
     return msgs
+
+
+# ------------------------------------------------------------------ deleting data
+
+def delete_dataset(name, workers=8, say=print):
+    """Remove a dataset: its rows (every upload of it), its histogram and its entry. Students fetching it get
+    "unknown dataset" afterwards. Rows go in the background job that calls this."""
+    from boto3.dynamodb.conditions import Key
+    from . import loader
+    from .store import t
+    meta = catalog.get_dataset(name)
+    if not meta:
+        raise LiveError(f"There is no dataset called {name}.")
+    for gen in {int(meta.get("gen") or 0), int(meta.get("pending_gen") or 0)} - {0}:
+        say(f"Removing the rows of {name} (upload {gen})...")
+        loader.delete_partition(catalog.rows_pk(name, gen), workers, say)
+        catalog.delete_histogram(name, gen)
+    # any older uploads left behind by an earlier "keep old" load
+    for item in t("ROWS").query(KeyConditionExpression=Key("pk").eq(f"HIST#{name}")).get("Items", []):
+        loader.delete_partition(catalog.rows_pk(name, int(item["sk"])), workers, say)
+        catalog.delete_histogram(name, int(item["sk"]))
+    t("CONFIG").delete_item(Key={"pk": f"DATASET#{name}", "sk": "META"})
+    catalog._scan_cache.clear()
+    return meta
+
+
+def delete_feed(feed, say=print):
+    """Remove a feed with all its datasets."""
+    from .store import t
+    if not catalog.get_feed(feed):
+        raise LiveError(f"There is no feed called {feed}.")
+    names = [d["dataset"] for d in catalog.list_datasets(feed)]
+    for n in names:
+        delete_dataset(n, say=say)
+    t("CONFIG").delete_item(Key={"pk": f"FEED#{feed}", "sk": "META"})
+    catalog._scan_cache.clear()
+    return names

@@ -17,6 +17,8 @@ import json
 import posixpath
 import time
 
+from boto3.dynamodb.conditions import Key
+
 from ..core import config, jobs, store, util
 from ..core.util import NotFound, UserError
 from . import detect, docxread, render, tree
@@ -201,6 +203,93 @@ def batches_on(vid):
     """Batches pinned to this version."""
     from ..core import org
     return [b for b in org.list_batches(include_archived=True) if vid in (b.get("versions") or {}).values()]
+
+
+# ================================================================== deleting what nobody uses
+
+def _projects_using(rid):
+    from ..core import org
+    return [f"{j['name']} ({c['name']})" for c, js in org.all_projects() for j in js if j.get("runbook_id") == rid]
+
+
+def _batches_with_marks(vid):
+    """Batches that have ticks or notes on this version (also after moving to a newer one: those are history)."""
+    from ..core import org
+    out = []
+    for b in org.list_batches(include_archived=True):
+        r = store.t("PROGRESS").query(KeyConditionExpression=Key("pk").eq(f"B#{b['id']}#V#{vid}"), Limit=1)
+        if r.get("Items"):
+            out.append(b["name"])
+    return out
+
+
+def version_blockers(vid):
+    """Plain reasons why a version cannot be deleted ([] = it can)."""
+    why = []
+    pinned = [b["name"] for b in batches_on(vid)]
+    if pinned:
+        why.append("batches are on it: " + ", ".join(pinned[:5]))
+    marked = [n for n in _batches_with_marks(vid) if n not in pinned]
+    if marked:
+        why.append("batches have ticks or notes on it: " + ", ".join(marked[:5]))
+    return why
+
+
+def runbook_blockers(rid):
+    why = []
+    used = _projects_using(rid)
+    if used:
+        why.append("projects use it: " + ", ".join(used[:5]))
+    for v in list_versions(rid):
+        for w in version_blockers(v["id"]):
+            why.append(f"version {v['number']}: {w}")
+    return why
+
+
+def _delete_files(vid):
+    bucket = config.runbook_bucket()
+    keys = [f"uploads/{vid}.docx"]
+    for prefix in (f"runbooks/{vid}/", f"media/rb/{vid}/"):
+        for page in _s3().get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+            keys += [o["Key"] for o in page.get("Contents", [])]
+    for i in range(0, len(keys), 1000):
+        _s3().delete_objects(Bucket=bucket, Delete={"Objects": [{"Key": k} for k in keys[i:i + 1000]], "Quiet": True})
+
+
+def delete_version(vid):
+    """Delete one uploaded version that no batch uses or has marked. Its files go too (the bucket keeps
+    S3's own older copies for a while, as with every file there)."""
+    v = get_version(vid)
+    why = version_blockers(vid)
+    if why:
+        raise UserError(f"Version {v['number']} cannot be deleted: " + "; ".join(why) + ".",
+                        "Move the batches to another version first. Versions with ticks stay as their history.")
+    if v["status"] in ("reading", "publishing") and not _stuck(v):
+        raise UserError(f"Version {v['number']} is still being {v['status'][:-3]}ed.", "Wait a minute and try again.")
+    _delete_files(vid)
+    store.t("CORE").delete_item(Key={"pk": f"RBV#{vid}", "sk": "META"})
+    _cache.pop(vid, None)
+    rb = get_runbook(v["rid"], required=False)
+    if rb and rb.get("latest") == vid:      # "current" falls back to the newest published version left
+        rest = [x for x in list_versions(v["rid"]) if x["status"] == "published"]
+        store.update("CORE", f"RB#{v['rid']}", "META",
+                     {"latest": rest[0]["id"] if rest else "", "latest_number": rest[0]["number"] if rest else 0})
+    return v
+
+
+def delete_runbook(rid):
+    """Delete a runbook with all its versions, when no project uses it and no batch has marked it."""
+    rb = get_runbook(rid)
+    why = runbook_blockers(rid)
+    if why:
+        raise UserError(f'"{rb["name"]}" cannot be deleted: ' + "; ".join(why) + ".",
+                        "Choose another runbook for those projects first. Runbooks with ticks stay as history.")
+    for v in list_versions(rid):
+        _delete_files(v["id"])
+        store.t("CORE").delete_item(Key={"pk": f"RBV#{v['id']}", "sk": "META"})
+        _cache.pop(v["id"], None)
+    store.t("CORE").delete_item(Key={"pk": f"RB#{rid}", "sk": "META"})
+    return rb
 
 
 def _refuse_if_in_use(v):
@@ -389,6 +478,11 @@ def _publish(v):
     if v["number"] >= int(rb.get("latest_number") or 0):      # republishing an old version never moves "current" back
         store.update("CORE", f"RB#{v['rid']}", "META", {"latest": vid, "latest_number": v["number"]})
     _cache.pop(vid, None)
+    if v.get("pdf_name"):                                      # the runbook's PDF: find where each part starts in it
+        try:
+            index_pdf(vid)
+        except Exception:  # noqa: BLE001  (the pages are published either way)
+            set_version(vid, {"pdf_message": "The PDF could not be matched to the pages. Attach it again."})
     return {"message": f"Published {len(out_nodes)} items and {len(stored)} images."}
 
 
@@ -410,6 +504,114 @@ def published(vid):
     data["order"] = {n["id"]: k for k, n in enumerate(data["nodes"])}
     _cache[vid] = (time.time(), data)
     return data
+
+
+# ================================================================== the runbook's own PDF (for the session PDF)
+
+PDF_MAX = 80 * 1024 * 1024
+_pdf_cache = {}
+
+
+def _pdf_key(vid):
+    return f"runbooks/{vid}/source.pdf"
+
+
+def _pdf_map_key(vid):
+    return f"runbooks/{vid}/pdfmap.json"
+
+
+def attach_pdf(vid, filename, data, who):
+    """Keep the runbook as a PDF beside its Word file. A session PDF is cut out of it, in the runbook's own look."""
+    v = get_version(vid)
+    if not (filename or "").lower().endswith(".pdf") or data[:5] != b"%PDF-":
+        raise UserError("Please upload a PDF file.", "In Word: File > Save As > PDF. Keep \"Create bookmarks using Headings\" on.")
+    if len(data) > PDF_MAX:
+        raise UserError("The PDF is larger than 80 MB.", "Save it again with smaller pictures and try again.")
+    from pypdf import PdfReader
+    import io
+    try:
+        r = PdfReader(io.BytesIO(data))
+        if r.is_encrypted:
+            raise UserError("This PDF is password-protected.", "Save an unprotected copy and upload that.")
+        pages = len(r.pages)
+    except UserError:
+        raise
+    except Exception:  # noqa: BLE001
+        raise UserError("This PDF could not be read.", "Save it again from Word and upload the new file.")
+    if not pages:
+        raise UserError("This PDF has no pages.")
+    bucket = config.runbook_bucket()
+    _s3().put_object(Bucket=bucket, Key=_pdf_key(vid), Body=data, ContentType="application/pdf")
+    try:
+        _s3().delete_object(Bucket=bucket, Key=_pdf_map_key(vid))
+    except Exception:  # noqa: BLE001
+        pass
+    _pdf_cache.pop(vid, None)
+    _pdf_map_cache.pop(vid, None)
+    published_now = v["status"] == "published"
+    set_version(vid, {"pdf_name": filename[:200], "pdf_size": len(data), "pdf_pages": pages, "pdf_at": util.now_iso(),
+                      "pdf_found": 0, "pdf_total": 0,
+                      "pdf_message": "Matching the PDF to the pages..." if published_now
+                      else "It is matched to the pages when this version is published."})
+    if published_now:
+        jobs.start("runbook_pdf_index", who, {"vid": vid}, label=f"Match PDF of {get_runbook(v['rid'])['name']} v{v['number']}")
+    return pages
+
+
+@jobs.register("runbook_pdf_index")
+def job_pdf_index(job):
+    try:
+        return index_pdf(job["params"]["vid"])
+    except Exception:
+        set_version(job["params"]["vid"], {"pdf_message": "The PDF could not be matched to the pages. Attach it again."})
+        raise
+
+
+def index_pdf(vid):
+    """Find where each published page of the version starts in its PDF and keep that (a small file beside the PDF)."""
+    from . import pdfslice
+    pub = published(vid)
+    data = _s3().get_object(Bucket=config.runbook_bucket(), Key=_pdf_key(vid))["Body"].read()
+    m = pdfslice.index(data, pub)
+    _put_json(_pdf_map_key(vid), m)
+    _pdf_cache.pop(vid, None)
+    _pdf_map_cache.pop(vid, None)
+    found, total = m["found"], m["total"]
+    set_version(vid, {"pdf_found": found, "pdf_total": total,
+                      "pdf_message": f"{found} of {total} pages found in the PDF" + (" (by its bookmarks)." if m["mode"] == "bookmarks" else " (by their headings).")})
+    return {"message": f"{found} of {total} pages found in the PDF."}
+
+
+_pdf_map_cache = {}
+
+
+def pdf_map(vid):
+    """Where each page of the version starts in its PDF (the small index), or None when it has no matched PDF."""
+    hit = _pdf_map_cache.get(vid)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    try:
+        m = _get_json(_pdf_map_key(vid))
+    except Exception:  # noqa: BLE001
+        return None
+    _pdf_map_cache[vid] = (time.time(), m)
+    return m
+
+
+def runbook_pdf(vid):
+    """(pdf bytes, index) of a version's PDF, or None when it has none (or it is not matched yet)."""
+    hit = _pdf_cache.get(vid)
+    if hit and time.time() - hit[0] < 600:
+        return hit[1]
+    try:
+        m = _get_json(_pdf_map_key(vid))
+        data = _s3().get_object(Bucket=config.runbook_bucket(), Key=_pdf_key(vid))["Body"].read()
+    except Exception:  # noqa: BLE001
+        return None
+    if len(_pdf_cache) >= 3:
+        _pdf_cache.pop(next(iter(_pdf_cache)))
+    _pdf_cache[vid] = (time.time(), (data, m))
+    return data, m
 
 
 def item_html(vid, node_id):

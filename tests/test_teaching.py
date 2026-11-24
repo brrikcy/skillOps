@@ -23,7 +23,7 @@ def world(aws):
     service.publish(vid, "boss")
     jobs.INLINE = False
     airtel = next(j for j in org.list_projects(ids["p1"]) if j["name"] == "Airtel")
-    org.set_project_runbook(ids["p1"], airtel["id"], rid)
+    org.set_project_runbook(airtel["id"], rid)
     airtel = org.get_project(ids["p1"], airtel["id"])
     progress.batch_version(org.get_batch(ids["A"]), airtel)
     pub = service.published(vid)
@@ -37,8 +37,7 @@ def test_continue_goes_to_where_the_class_is_not_to_a_gap(world):
     for c in ("1.1", "1.2", "1.4"):                      # 1.3 was skipped on purpose
         progress.tick(w["ids"]["A"], w["vid"], w["code"][c]["id"], w["t1"])
     s = progress.summary(w["ids"]["A"], w["vid"])
-    assert s["first_open"]["code"] == "1.3"              # the gap is still listed ...
-    assert [n["code"] for n in s["skipped"]] == ["1.3"]
+    assert s["first_open"]["code"] == "1.3"              # 1.3 is still open ...
     assert s["next_up"]["code"] == "1.5"                 # ... but the class continues at 1.5
     t = Browser()
     t.sign_in_local("trainer1@robomy.test")
@@ -69,27 +68,15 @@ def test_class_view_shows_a_whole_section_and_ticks_in_place(world):
     assert other.get(f"{w['base']}/teach/{section}")["statusCode"] == 403
 
 
-def test_repeat_flag_is_per_batch_and_shows_on_the_dashboard(world):
+def test_there_is_no_repeat_flag_or_gap_list(world):
     w = world
     t = Browser()
     t.sign_in_local("trainer1@robomy.test")
-    t.get(f"{w['base']}/teach/{w['code']['1.1']['parent']}")
-    item = w["code"]["1.2"]["id"]
-    r = t.post(f"{w['base']}/i/{item}/repeat", {"on": "1"}, headers={"accept": "application/json", "x-requested-with": "fetch"})
-    assert json.loads(r["body"]) == {"ok": True, "repeat": True}
-    progress.save_note(w["ids"]["A"], w["vid"], item, "Go slower here", w["t1"])      # a note keeps the flag
+    page = body(t.get(f"{w['base']}/teach/{w['code']['1.1']['parent']}"))
+    assert "repeat-inline" not in page and "Needs a repeat" not in page
+    assert t.post(f"{w['base']}/i/{w['code']['1.2']['id']}/repeat", {"on": "1"})["statusCode"] == 404
     s = progress.summary(w["ids"]["A"], w["vid"])
-    assert [n["code"] for n in s["repeats"]] == ["1.2"] and s["flags"][item]["text"] == "Go slower here"
-    assert progress.summary(w["ids"]["B"], w["vid"])["repeats"] == []
-    rows = dashboard.batch_rows(org.scope(None))
-    import os
-    os.environ["LOCAL_SUPERADMINS"] = "boss@robomy.test"
-    b = Browser()
-    b.sign_in_local("boss@robomy.test")
-    assert "1 to revisit" in body(b.get("/dashboard?programme=all&institution=all"))
-    assert rows
-    t.post(f"{w['base']}/i/{item}/repeat", {"on": "0"})
-    assert progress.summary(w["ids"]["A"], w["vid"])["repeats"] == []
+    assert "repeats" not in s and "skipped" not in s
 
 
 def test_class_recap_lists_today_and_the_next_item(world):
@@ -129,6 +116,6 @@ def test_tools_hub_groups_live_data_and_mcq(world):
     t.sign_in_local("trainer1@robomy.test")
     page = t.get(f"/b/{world['ids']['A']}/tools")
     html = body(page)
-    assert page["statusCode"] == 200 and "SkillOps Live Data" in html and "MCQ tests" in html
+    assert page["statusCode"] == 200 and "Live Data Simulator" in html and "MCQ tests" in html
     assert "Not connected for this institution yet." in html
     assert 'class="on"' in html and ">Tools<" in html.replace("</svg>", "")

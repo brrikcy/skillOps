@@ -2,7 +2,7 @@
 {% from "_ui.html" import icon, empty %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Runbooks</h1><p class="sub">Robomy's shared library. One runbook can be used by programmes at any institution.</p></div>
+  <div><h1>Runbooks</h1></div>
 </div>
 <div class="grid side-main">
   <div class="card flush">
@@ -16,7 +16,7 @@
         <td><a href="/admin/runbooks/{{ r.id }}"><strong>{{ r.name }}</strong></a></td>
         <td>{% if r.latest_v %}<span class="badge teal">v{{ r.latest_v.number }}</span> <span class="muted small">{{ r.latest_v.counts.get(r.latest_v.checkable|string, 0) }} items</span>{% else %}<span class="badge grey">not yet</span>{% endif %}</td>
         <td>{% if r.newest %}v{{ r.newest.number }} · <span class="muted small">{{ r.newest.status }}</span>{% else %}<span class="muted">no file yet</span>{% endif %}</td>
-        <td class="small">{% for u in r.used_by %}<div>{{ u.programme.name }} › <strong>{{ u.project.name }}</strong></div>{% else %}<span class="muted small">no project</span>{% endfor %}</td>
+        <td class="small">{% for u in r.used_by %}<div>{{ u.course.name }} › <strong>{{ u.project.name }}</strong></div>{% else %}<span class="muted small">no project</span>{% endfor %}</td>
       </tr>
       {% endfor %}
       </tbody>

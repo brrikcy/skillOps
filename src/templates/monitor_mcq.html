@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty, view_only %}
+{% block content %}
+<div class="page-head">
+  <div><h1>MCQ tests</h1><p class="sub">Which institutions have the MCQ test system connected, and the MCQ name of each batch. A batch's tests and results are under its Tools tab.</p></div>
+  <div class="actions">{{ view_only("/admin/mcq") }}</div>
+</div>
+<div class="card flush">
+  {% if rows %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Institution</th><th>Connection</th><th>Batches → MCQ name</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><strong>{{ r.inst.name }}</strong></td>
+      <td>{% if r.settings.last_ok %}<span class="badge teal">connected · tested {{ r.settings.last_ok|when }}</span>{% elif r.settings.url %}<span class="badge warn">not tested</span>{% else %}<span class="badge grey">not connected</span>{% endif %}</td>
+      <td class="small">{% for b in r.batches %}<a href="/b/{{ b.id }}/mcq">{{ b.name }}</a> → {% if b.mcq_batch %}<code>{{ b.mcq_batch }}</code>{% else %}<span class="badge warn">no MCQ name</span>{% endif %}{% if not loop.last %} · {% endif %}{% else %}<span class="muted">none yet</span>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}{{ empty("i-test", "No institutions yet") }}{% endif %}
+</div>
+{% endblock %}

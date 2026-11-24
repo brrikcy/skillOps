@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Courses</h1><p class="sub">Robomy's courses. Each holds projects in teaching order; a programme takes the projects of the courses it selects.</p></div>
+</div>
+<div class="grid side-main">
+  <div class="card flush">
+    {% if items %}
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Course</th><th>Projects</th><th class="num">Programmes</th><th></th></tr></thead>
+      <tbody>
+      {% for c in items %}
+      <tr><td><a href="/admin/courses/{{ c.id }}"><strong>{{ c.name }}</strong></a></td>
+        <td class="small">{% for j in c.projects[:6] %}{{ j.name }}{% if not loop.last %}, {% endif %}{% else %}<span class="muted">none yet</span>{% endfor %}{% if c.projects|length > 6 %} <span class="muted">+{{ c.projects|length - 6 }}</span>{% endif %}</td>
+        <td class="num">{{ c.programmes|length }}</td>
+        <td class="right"><a class="btn sm" href="/admin/courses/{{ c.id }}">Open</a></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}{{ empty("i-steps", "No courses yet", "Add the first one on the right.") }}{% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Add a course</h2></div>
+    <div class="card-body">
+      <form method="post" action="/admin/courses">{% include "_guard.html" %}
+        <label>Name<input name="name" required maxlength="100" placeholder="for example Data Analytics"></label>
+        <button class="btn primary" type="submit">{{ icon("i-plus") }}Add course</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

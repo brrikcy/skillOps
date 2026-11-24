@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty, view_only %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Courses</h1><p class="sub">Robomy's courses, their projects in teaching order, and the runbook each project uses.</p></div>
+  <div class="actions">{{ view_only("/admin/courses") }}</div>
+</div>
+{% for c in courses %}
+<div class="card flush">
+  <div class="card-head"><h2>{{ icon("i-steps") }} {{ c.name }}</h2><span class="muted small">{{ c.projects|length }} project{{ "" if c.projects|length == 1 else "s" }}</span></div>
+  {% if c.projects %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th style="width:44px">#</th><th>Project</th><th>Runbook</th></tr></thead>
+    <tbody>{% for j in c.projects %}
+      <tr><td class="muted">{{ loop.index }}</td><td><strong>{{ j.name }}</strong></td>
+        <td class="small">{% if j.runbook_id %}{{ rb_names.get(j.runbook_id, "—") }}{% else %}<span class="badge grey">no runbook</span>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  <div class="card-body small muted" style="border-top:1px solid var(--line)">Used by: {% for p in c.programmes %}{{ p.institution.name }} › <strong>{{ p.name }}</strong>{% if not loop.last %} · {% endif %}{% else %}no programme yet{% endfor %}</div>
+</div>
+{% else %}
+<div class="card">{{ empty("i-steps", "No courses yet", "Courses are added in Settings › Courses.") }}</div>
+{% endfor %}
+{% endblock %}

@@ -11,6 +11,11 @@ from ..mcq import client
 from ..web import route
 
 BATCH = "(?P<bid>b-[a-z0-9]{4,12})"
+
+
+def _home(ctx, bid):
+    """Back to the batch's tool page on the side the change was made from: Settings > Batches for the admin."""
+    return f"/admin/batches/{bid}" if ctx.area == "settings" else f"/b/{bid}"
 INST = "(?P<iid>i-[a-z0-9]{4,12})"
 TEST = "(?P<tid>[A-Za-z0-9_\\-]{1,30})"
 UNAVAILABLE = "The test system is not answering. Everything else works."
@@ -86,7 +91,7 @@ def test_active(ctx, bid, tid):
                     write=True, idem=_idem(ctx))
     except (client.McqUnavailable, client.McqError) as e:
         raise UserError(f"Not changed: {e}", "Try again in a minute.")
-    return ctx.redirect(f"/b/{bid}/mcq", flash=f"Test {tid} is {'open' if active else 'closed'}.")
+    return ctx.redirect(f"{_home(ctx, bid)}/mcq", flash=f"Test {tid} is {'open' if active else 'closed'}.")
 
 
 def _monitor_data(bc, tid):
@@ -127,7 +132,7 @@ def monitor_action(ctx, bid, tid):
             raise UserError("Unknown action.")
     except (client.McqUnavailable, client.McqError) as e:
         raise UserError(f"Not done: {e}", "Refresh the monitor and try again.")
-    return ctx.redirect(f"/b/{bid}/mcq/monitor/{tid}", flash=msg)
+    return ctx.redirect(f"{_home(ctx, bid)}/mcq/monitor/{tid}", flash=msg)
 
 
 @route("GET", f"/b/{BATCH}/mcq/results/{TEST}")
@@ -182,7 +187,7 @@ def import_questions(ctx, bid):
     if not r.get("ok", True):
         errs = "; ".join(r.get("errors", [])[:5])
         raise UserError(f"The file has {r.get('errorCount', 0)} problem(s): {errs}", "Correct the file and import again.")
-    return ctx.redirect(f"/b/{bid}/mcq",
+    return ctx.redirect(f"{_home(ctx, bid)}/mcq",
                         flash=f"Imported {r.get('added')} question(s) into {tid}. It now has {r.get('total')}. "
                               "New tests start closed: set Allowed Batches and open it when ready.")
 
@@ -199,7 +204,7 @@ def reattempt(ctx, bid):
         raise UserError(f"Not done: {e}")
     msg = ("Done. The student can start the test again; the earlier result is kept and marked." if r.get("allowed")
            else "No attempt was found for that email in that test.")
-    return ctx.redirect(f"/b/{bid}/mcq", flash=msg, kind="ok" if r.get("allowed") else "warn")
+    return ctx.redirect(f"{_home(ctx, bid)}/mcq", flash=msg, kind="ok" if r.get("allowed") else "warn")
 
 
 # ================================================================== supervisor: connections

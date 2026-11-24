@@ -57,7 +57,7 @@ class Handler(BaseHTTPRequestHandler):
             "rawPath": parts.path, "rawQueryString": parts.query, "headers": headers,
             "requestContext": {"http": {"method": self.command, "sourceIp": self.client_address[0]},
                                "requestId": os.urandom(6).hex()},
-            "body": base64.b64encode(raw).decode() if raw else "", "isBase64Encoded": bool(raw),
+            "body": "", "isBase64Encoded": False, "_raw_body": raw,
         }
         resp = web.handle(event)
         data = resp.get("body") or ""
@@ -90,6 +90,8 @@ def main():
     ap.add_argument("--port", type=int, default=8790)
     ap.add_argument("--seed", action="store_true",
                     help="add sample institutions, batches, trainers, the sample runbook, live data and a fake MCQ system")
+    ap.add_argument("--sample", action="store_true",
+                    help="with --seed: also fill every screen with temporary sample data (ticks over weeks, plans, students, audit)")
     args = ap.parse_args()
     local_env()
     from moto import mock_aws
@@ -100,7 +102,10 @@ def main():
         store.create_buckets()
         if args.seed:
             import demo
-            demo.seed_all(say=print)
+            ids = demo.seed_all(say=print)
+            if args.sample:
+                import demo_rich
+                demo_rich.seed_rich(ids, say=print)
         server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
         print(f"\nSkillOps (local mode) is running at http://127.0.0.1:{args.port}   Stop with Ctrl+C.\n")
         try:

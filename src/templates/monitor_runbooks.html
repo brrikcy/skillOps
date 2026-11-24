@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty, view_only %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Runbooks</h1><p class="sub">What is published and which projects use it. Read any published version.</p></div>
+  <div class="actions">{{ view_only("/admin/runbooks") }}</div>
+</div>
+<div class="card flush">
+  {% if runbooks %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Runbook</th><th>Latest published</th><th>Used by</th><th>Read</th></tr></thead>
+    <tbody>
+    {% for r in runbooks %}
+    <tr>
+      <td><strong>{{ r.name }}</strong></td>
+      <td>{% if r.latest_v %}<span class="badge teal">v{{ r.latest_v.number }}</span> <span class="muted small">{{ r.latest_v.counts.get(r.latest_v.checkable|string, 0) }} items</span>{% else %}<span class="badge grey">not yet</span>{% endif %}</td>
+      <td class="small">{% for u in r.used_by %}<div>{{ u.course.name }} › <strong>{{ u.project.name }}</strong></div>{% else %}<span class="muted">no project</span>{% endfor %}</td>
+      <td class="nowrap">{% for v in r.published %}<a class="btn sm ghost" href="/monitor/runbooks/{{ r.id }}/v/{{ v.id }}/view" data-popup>{{ icon("i-book", "sm") }}v{{ v.number }}</a> {% else %}<span class="muted small">—</span>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}{{ empty("i-book", "No runbooks yet", "Runbooks are uploaded in Settings › Runbooks.") }}{% endif %}
+</div>
+{% endblock %}

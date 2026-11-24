@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, empty %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ course.name }}</h1>
+    <p class="sub">{{ projects|length }} project{{ "" if projects|length == 1 else "s" }} · used by {{ programmes|length }} programme{{ "" if programmes|length == 1 else "s" }}</p></div>
+</div>
+
+<div class="card flush">
+  <div class="card-head"><h2>{{ icon("i-steps") }} Projects</h2><span class="muted small">in teaching order</span></div>
+  {% if projects %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th style="width:44px">#</th><th>Project</th><th>Runbook</th><th style="width:150px"></th></tr></thead>
+    <tbody>
+    {% for j in projects %}
+    <tr>
+      <td class="muted">{{ loop.index }}</td>
+      <td><strong>{{ j.name }}</strong></td>
+      <td><form method="post" action="/admin/projects/{{ j.id }}/runbook">{% include "_guard.html" %}
+        <select name="runbook_id" class="quiet-select" aria-label="Runbook for {{ j.name }}" data-autosubmit><option value="">No runbook</option>{% for r in runbooks %}<option value="{{ r.id }}" {% if j.runbook_id == r.id %}selected{% endif %}>{{ r.name }} · v{{ r.latest_number }}</option>{% endfor %}</select>
+        <noscript><button class="btn sm" type="submit">Use</button></noscript></form>
+        {% if j.runbook_id and j.runbook_id not in runbooks|map(attribute="id")|list %}<div class="small muted">{{ rb_names.get(j.runbook_id, j.runbook_id) }} (not published)</div>{% endif %}</td>
+      <td class="right nowrap">
+        <form method="post" action="/admin/projects/{{ j.id }}/move" class="inline">{% include "_guard.html" %}<button class="btn sm ghost" name="direction" value="up" {% if loop.first %}disabled{% endif %} aria-label="Move {{ j.name }} up" title="Move up">↑</button></form>
+        <form method="post" action="/admin/projects/{{ j.id }}/move" class="inline">{% include "_guard.html" %}<button class="btn sm ghost" name="direction" value="down" {% if loop.last %}disabled{% endif %} aria-label="Move {{ j.name }} down" title="Move down">↓</button></form>
+        <details class="row-menu">
+          <summary class="btn sm ghost" aria-label="More for {{ j.name }}" title="More">⋯</summary>
+          <div class="row-menu-list">
+            <form method="post" action="/admin/projects/{{ j.id }}/rename">{% include "_guard.html" %}
+              <label>Rename<input name="name" value="{{ j.name }}" maxlength="80" required></label>
+              <button class="btn sm" type="submit">Save name</button></form>
+            <hr>
+            <form method="post" action="/admin/projects/{{ j.id }}/delete">{% include "_guard.html" %}<button class="menu-item danger-text" type="submit" data-confirm="Delete project {{ j.name }} for good? Every programme that has it loses it, and batches lose their place in it.">{{ icon("i-x", "sm") }}Delete</button></form>
+          </div>
+        </details>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}{{ empty("i-steps", "No projects yet", "Add them in teaching order.") }}{% endif %}
+  <div class="card-body" style="border-top:1px solid var(--line)">
+    <form method="post" action="/admin/courses/{{ course.id }}/projects" class="form-row">{% include "_guard.html" %}
+      <label>Add a project<input name="name" required maxlength="80" placeholder="for example Airtel"></label>
+      <button class="btn primary" type="submit">{{ icon("i-plus") }}Add project</button>
+    </form>
+    {% if not runbooks %}<p class="muted small">No runbook is published yet. <a href="/admin/runbooks">Upload one in Runbooks</a>, then choose it here.</p>{% endif %}
+  </div>
+</div>
+
+<div class="grid two">
+  <div>
+    <div class="card">
+      <div class="card-head"><h2>{{ icon("i-building") }} Programmes using this course</h2></div>
+      <div class="card-body small">
+        {% for p in programmes %}<div><a href="/admin/programmes/{{ p.id }}">{{ p.name }}</a> <span class="muted">· {{ p.institution.name }}</span></div>
+        {% else %}<span class="muted">None yet. Select this course on a programme's page (Institutions › institution › programme).</span>{% endfor %}
+      </div>
+    </div>
+    <div class="card"><div class="card-head"><h2>Details</h2></div><div class="card-body">
+      <form method="post" action="/admin/courses/{{ course.id }}/update" class="form-row">{% include "_guard.html" %}
+        <label>Course name<input name="name" value="{{ course.name }}" required maxlength="100"></label><button class="btn" type="submit">Save</button></form></div></div>
+  </div>
+  <div class="card remove-card">
+    <div class="card-head"><h2>Delete</h2></div>
+    <div class="card-body">
+      <details class="remove-row delete-box">
+        <summary><div><strong class="danger-text">Delete</strong><div class="muted small">Removes the course and its projects; every programme using them loses them. Runbooks stay in the library.</div></div><span class="btn danger">Delete…</span></summary>
+        <form method="post" action="/admin/courses/{{ course.id }}/delete" class="form-row delete-form">{% include "_guard.html" %}
+          <label>Type <strong>{{ course.name }}</strong> to confirm<input name="confirm_name" required autocomplete="off"></label>
+          <button class="btn danger" type="submit" data-confirm="Delete {{ course.name }} for good?">Delete course</button>
+        </form>
+      </details>
+    </div>
+  </div>
+</div>
+{% endblock %}

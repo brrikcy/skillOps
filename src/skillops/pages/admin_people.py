@@ -1,8 +1,9 @@
-"""Supervisor pages: trainers and the batches they are linked to."""
+"""Supervisor pages: trainers (a list of their own), the institutions they work with and their batches."""
 from urllib.parse import unquote
 
 from ..core import idem, org
 from ..core.http import q
+from ..core.util import UserError
 from ..web import route
 
 EMAIL = "(?P<email>[^/]{3,200})"
@@ -14,11 +15,18 @@ def _email(raw):
 
 @route("GET", "/admin/trainers", access="super")
 def trainers(ctx):
-    items = org.list_trainers()
-    names = {b["id"]: b["name"] for b in org.list_batches(include_archived=True)}
-    for t in items:
-        t["batch_names"] = sorted(names.get(b, b) for b in org.trainer_batch_ids(t["email"]))
-    return ctx.render("admin_trainers.html", title="Trainers", items=items,
+    people = org.trainer_directory()
+    insts = org.list_institutions()
+    show = ctx.req.query.get("inst", "all")
+    if show == "none":
+        shown = [t for t in people if not t["institutions"]]
+    elif show != "all":
+        shown = [t for t in people if any(i["id"] == show for i in t["institutions"])]
+    else:
+        shown = people
+    counts = {i["id"]: sum(1 for t in people if any(x["id"] == i["id"] for x in t["institutions"])) for i in insts}
+    return ctx.render("admin_trainers.html", title="Trainers", trainers=shown, show=show, insts=insts,
+                      counts=counts, total=len(people), unplaced=sum(1 for t in people if not t["institutions"]),
                       web_address=ctx.req.base_url())
 
 
@@ -29,10 +37,10 @@ def trainer_create(ctx):
     ctx.audit_target = email
 
     def work():
-        org.create_trainer(email, f.get("name"))
+        org.create_trainer(email, f.get("name"), (f.get("inst_id") or "").strip() or None)
         return {"redirect": f"/admin/trainers/{q(email)}",
                 "flash": "Trainer added. Cognito has emailed them a temporary password. "
-                         "Send them this web address and link their batches below."}
+                         "Add them to the institutions they work with, then link their batches."}
     result = idem.run_once(f.get("idem"), ctx.staff.email, work)
     return ctx.redirect(result["redirect"], flash=result.get("flash"))
 
@@ -40,10 +48,13 @@ def trainer_create(ctx):
 @route("GET", f"/admin/trainers/{EMAIL}", access="super")
 def trainer_page(ctx, email):
     t = org.get_trainer(_email(email))
-    tree = org.scope(None)
-    linked = org.trainer_batch_ids(t["email"])
-    return ctx.render("admin_trainer.html", title=t["name"], t=t, tree=tree, linked=linked,
-                      web_address=ctx.req.base_url())
+    mine = org.trainer_institution_ids(t["email"])
+    # only the batches of the institutions they work with can be linked
+    tree = [i for i in org.scope(None) if i["institution"]["id"] in mine]
+    insts = org.list_institutions()
+    return ctx.render("admin_trainer.html", title=t["name"], t=t, tree=tree, linked=org.trainer_batch_ids(t["email"]),
+                      member_of=[i for i in insts if i["id"] in mine],
+                      can_join=[i for i in insts if i["id"] not in mine], web_address=ctx.req.base_url())
 
 
 @route("POST", f"/admin/trainers/{EMAIL}/update", access="super", name="rename trainer")
@@ -52,6 +63,27 @@ def trainer_update(ctx, email):
     ctx.audit_target = email
     org.rename_trainer(email, ctx.form().get("name"))
     return ctx.redirect(f"/admin/trainers/{q(email)}", flash="Saved.")
+
+
+@route("POST", f"/admin/trainers/{EMAIL}/institutions", access="super", name="add trainer to institution")
+def trainer_join(ctx, email):
+    email = _email(email)
+    iid = ctx.form().get("inst_id", "")
+    ctx.audit_target = f"{email} {iid}"
+    if not iid:
+        raise UserError("Please choose an institution.")
+    org.add_trainer_to_institution(email, iid)
+    return ctx.redirect(f"/admin/trainers/{q(email)}", flash="Added. Their batches there can now be linked below.")
+
+
+@route("POST", f"/admin/trainers/{EMAIL}/institutions/remove", access="super", name="remove trainer from institution")
+def trainer_leave(ctx, email):
+    email = _email(email)
+    iid = ctx.form().get("inst_id", "")
+    ctx.audit_target = f"{email} {iid}"
+    gone = org.remove_trainer_from_institution(email, iid)
+    extra = f" Unlinked from {', '.join(b['name'] for b in gone)}; their past ticks are kept." if gone else ""
+    return ctx.redirect(f"/admin/trainers/{q(email)}", flash="Taken off the institution." + extra)
 
 
 @route("POST", f"/admin/trainers/{EMAIL}/batches", access="super", name="set trainer batches")
@@ -63,6 +95,17 @@ def trainer_batches(ctx, email):
     ctx.audit_detail = f"added {','.join(added) or '-'}; removed {','.join(removed) or '-'}"
     return ctx.redirect(f"/admin/trainers/{q(email)}",
                         flash=f"Saved. {len(added)} batch(es) linked, {len(removed)} unlinked.")
+
+
+@route("POST", f"/admin/trainers/{EMAIL}/delete", access="super", name="delete trainer")
+def trainer_delete(ctx, email):
+    from ..core import removal
+    email = _email(email)
+    t = org.get_trainer(email)
+    ctx.audit_target = email
+    removal.check_name(ctx.form().get("confirm_name"), t["name"], "trainer")
+    removal.delete_trainer(email)
+    return ctx.redirect("/admin/trainers", flash=f"{t['name']}'s account is deleted. Their past ticks keep their name.")
 
 
 @route("POST", f"/admin/trainers/{EMAIL}/disable", access="super", name="turn off trainer")

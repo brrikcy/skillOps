@@ -20,7 +20,7 @@ def world(tmp_path, approval=False):
 
 def check(status, body, want_status, want_code):
     assert status == want_status, body
-    assert body["platform"] == "SkillOps Live Data"
+    assert body["platform"] == "Live Data Simulator"
     assert set(body["error"]) >= {"code", "message", "hint"}
     assert body["error"]["code"] == want_code
     return body["error"]
@@ -100,7 +100,7 @@ def test_429_rate_limited(aws, tmp_path, monkeypatch):
 def test_404_405_and_health(aws, tmp_path):
     world(tmp_path)
     status, b = api("GET", "/v1/health")
-    assert status == 200 and b["status"] == "ok" and b["platform"] == "SkillOps Live Data"
+    assert status == 200 and b["status"] == "ok" and b["platform"] == "Live Data Simulator"
     check(*api("GET", "/v1/fetchh"), 404, "not_found")
     check(*api("POST", "/v1/fetch", body={}), 405, "method_not_allowed")
     check(*api("GET", "/v1/register"), 405, "method_not_allowed")

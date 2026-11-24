@@ -3,7 +3,7 @@
 {% block content %}
 {% include "_batch_tabs.html" %}
 <div class="card flush">
-  <div class="card-head"><h2>{{ s.name }} <span class="muted small">· roll {{ s.roll_display or s.roll }} · {{ s.status }}</span></h2><a class="actions small" href="/b/{{ page.batch.id }}/live">Back to students</a></div>
+  <div class="card-head"><h2>{{ s.name }} <span class="muted small">· roll {{ s.roll_display or s.roll }} · {{ s.status }}</span></h2><a class="actions small" href="{{ bbase }}/live">Back to students</a></div>
   {% if log %}
   <div class="table-wrap"><table class="table small">
     <thead><tr><th>Time</th><th>Dataset</th><th>since</th><th>until</th><th class="num">Rows</th><th class="num">Page</th><th>Status</th><th>Error</th></tr></thead>

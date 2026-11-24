@@ -11,7 +11,30 @@ from urllib.parse import parse_qsl, quote, urlsplit
 
 from . import config
 
-MAX_FORM_BYTES = 6 * 1024 * 1024
+MAX_FORM_BYTES = 6 * 1024 * 1024            # API Gateway's own limit; large files go straight to S3 in AWS
+MAX_LOCAL_FORM_BYTES = 450 * 1024 * 1024    # on the laptop the file comes through the page itself
+
+
+def _split_multipart(body, ctype):
+    """A fast multipart/form-data reader for large uploads (the email parser copies the file many times).
+    Yields (name, filename or None, content_type, data)."""
+    m = re.search(r'boundary="?([^";]+)"?', ctype)
+    if not m:
+        return
+    sep = b"--" + m.group(1).encode("latin-1")
+    for chunk in body.split(sep)[1:]:
+        if chunk.startswith(b"--"):
+            break
+        head, _, data = chunk.partition(b"\r\n\r\n")
+        if data.endswith(b"\r\n"):
+            data = data[:-2]
+        head = head.decode("utf-8", "replace")
+        name = re.search(r'name="([^"]*)"', head)
+        if not name:
+            continue
+        fn = re.search(r'filename="([^"]*)"', head)
+        ct = re.search(r"content-type:\s*([^\r\n;]+)", head, re.I)
+        yield name.group(1), (fn.group(1) if fn else None), (ct.group(1).strip() if ct else ""), data
 
 
 class Request:
@@ -23,7 +46,8 @@ class Request:
         self.raw_query = event.get("rawQueryString") or ""
         self.query = dict(parse_qsl(self.raw_query, keep_blank_values=True))
         self.headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
-        self.source_ip = (ctx.get("http", {}) or {}).get("sourceIp", "unknown")
+        self.source_ip = (self.headers.get("x-skillops-viewer") or
+                          (ctx.get("http", {}) or {}).get("sourceIp", "unknown"))[:64]
         self.request_id = ctx.get("requestId") or uuid.uuid4().hex[:16]
         self.cookies = {}
         cookie_list = event.get("cookies") or []
@@ -34,7 +58,9 @@ class Request:
                 k, v = c.strip().split("=", 1)
                 self.cookies[k.strip()] = v.strip()
         body = event.get("body") or ""
-        if event.get("isBase64Encoded"):
+        if event.get("_raw_body") is not None:        # the laptop server hands over the bytes as they are
+            self.body = event["_raw_body"]
+        elif event.get("isBase64Encoded"):
             self.body = base64.b64decode(body)
         else:
             self.body = body.encode("utf-8") if isinstance(body, str) else body
@@ -84,11 +110,19 @@ class Request:
 
     def _parse_form(self):
         self._form, self._files = {}, {}
-        if len(self.body) > MAX_FORM_BYTES:
+        limit = MAX_LOCAL_FORM_BYTES if config.local_mode() else MAX_FORM_BYTES
+        if len(self.body) > limit:
             from .util import UserError
-            raise UserError("The form is too large.", "Use a smaller file.", status=413)
+            raise UserError(f"The file is larger than {limit // (1024 * 1024)} MB.", "Use a smaller file.", status=413)
         ctype = self.headers.get("content-type", "")
-        if ctype.startswith("multipart/form-data"):
+        if ctype.startswith("multipart/form-data") and len(self.body) > MAX_FORM_BYTES:
+            for name, filename, part_type, data in _split_multipart(self.body, ctype):
+                if filename is not None:
+                    if data:
+                        self._files[name] = {"filename": filename, "data": data, "content_type": part_type}
+                else:
+                    self._form[name] = data.decode("utf-8", "replace")
+        elif ctype.startswith("multipart/form-data"):
             msg = BytesParser(policy=email_policy).parsebytes(
                 b"Content-Type: " + ctype.encode("latin-1") + b"\r\nMIME-Version: 1.0\r\n\r\n" + self.body)
             for part in msg.iter_parts():
@@ -145,11 +179,11 @@ class Response:
 SECURITY_HEADERS = {
     "x-content-type-options": "nosniff",
     "referrer-policy": "same-origin",
-    "x-frame-options": "DENY",
+    "x-frame-options": "SAMEORIGIN",         # Settings opens in a pane of this same app
     # Everything comes from this app. Inline style attributes are allowed because runbook
     # tables keep their Word cell colours; scripts only from /static.
     "content-security-policy": ("default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-                                "script-src 'self'; frame-ancestors 'none'; base-uri 'self'; "
+                                "script-src 'self'; frame-src 'self' https://*.amazonaws.com; frame-ancestors 'self'; base-uri 'self'; "
                                 "form-action 'self' https://*.amazonaws.com"),
 }
 

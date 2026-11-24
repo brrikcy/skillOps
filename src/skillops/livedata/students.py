@@ -71,9 +71,9 @@ def list_codes():
 
 
 def close_code(code):
-    store.t("CONFIG").update_item(Key={"pk": f"CODE#{code}", "sk": "META"},
-                                  UpdateExpression="SET closed = :t", ExpressionAttributeValues={":t": True},
-                                  ConditionExpression="attribute_exists(pk)")
+    """A closed code is gone: nobody can register with it, and it no longer clutters the list.
+    (Students who registered with it keep their accounts; their record keeps the code they used.)"""
+    store.t("CONFIG").delete_item(Key={"pk": f"CODE#{code}", "sk": "META"})
 
 
 def _use_code(code, now_us):

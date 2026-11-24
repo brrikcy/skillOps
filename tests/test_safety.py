@@ -98,19 +98,26 @@ def test_export_job_from_the_page(boss):
 
 
 def test_csv_import_plans_applies_and_is_safe_to_repeat(aws):
-    text = ("institution,institution_code,programme,project,batch,mcq_batch,trainer_name,trainer_email\n"
-            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,IPL,,,,\n"
-            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,Airtel,,,,\n"
-            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,,Batch A,A,Trainer One,t1@robomy.test\n"
-            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,,Batch B,B,Trainer Two,t2@robomy.test\n"
-            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,,Batch B,B,Trainer One,t1@robomy.test\n")
+    text = ("institution,institution_code,programme,course,project,batch,mcq_batch,trainer_name,trainer_email\n"
+            ",,,Data Analytics,IPL,,,,\n"
+            ",,,Data Analytics,Airtel,,,,\n"
+            ",,,Case Studies,Uber,,,,\n"
+            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,Data Analytics,,,,,\n"
+            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,,Uber,,,,\n"
+            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,,,Batch A,A,Trainer One,t1@robomy.test\n"
+            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,,,Batch B,B,Trainer Two,t2@robomy.test\n"
+            "DBI Skill Park,DBI,DBI OJT Sem 3 - Data Analyst,,,Batch B,B,Trainer One,t1@robomy.test\n")
     plan = importer.plan(text)
-    assert plan["errors"] == []
-    assert len(plan["actions"]) == 11      # 1 institution, 1 programme, 2 projects, 2 batches, 2 trainers, 3 links
-    importer.apply(text)
+    assert plan["errors"] == [], plan["errors"]
+    # 2 courses, 3 projects, 1 institution, 1 programme, 1 course selected, 1 project added, 2 batches,
+    # 2 trainers, 2 added to the institution, 3 links
+    assert len(plan["actions"]) == 18, plan["actions"]
+    done = importer.apply(text)
+    assert done == plan["actions"]
     prog = org.list_programmes()[0]
-    assert [j["name"] for j in org.list_projects(prog["id"])] == ["IPL", "Airtel"]
+    assert [j["name"] for j in org.list_projects(prog["id"])] == ["IPL", "Airtel", "Uber"]
     assert len(org.trainer_batch_ids("t1@robomy.test")) == 2
+    assert org.trainer_institution_ids("t2@robomy.test") == {prog["inst_id"]}
     assert importer.plan(text)["actions"] == []
     assert importer.apply(text) == []
 

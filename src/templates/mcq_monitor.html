@@ -4,9 +4,9 @@
 {% include "_batch_tabs.html" %}
 <div class="page-head" style="margin-bottom:12px">
   <div><h2 style="font-size:1.2rem">Live monitor · {{ tid }}</h2><p class="sub small">Refreshes every 10 seconds. <span data-refresh-stamp></span></p></div>
-  <div class="actions"><a class="btn sm" href="/b/{{ page.batch.id }}/mcq">Back to tests</a><a class="btn sm" href="">{{ icon("i-refresh", "sm") }}Refresh now</a></div>
+  <div class="actions"><a class="btn sm" href="{{ bbase }}/mcq">Back to tests</a><a class="btn sm" href="">{{ icon("i-refresh", "sm") }}Refresh now</a></div>
 </div>
-<div data-refresh="10" data-refresh-url="/b/{{ page.batch.id }}/mcq/monitor/{{ tid }}/panel">
+<div data-refresh="10" data-refresh-url="{{ bbase }}/mcq/monitor/{{ tid }}/panel">
 {% include "mcq_monitor_panel.html" %}
 </div>
 {% endblock %}

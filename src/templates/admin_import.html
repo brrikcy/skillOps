@@ -2,7 +2,7 @@
 {% from "_ui.html" import icon %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Import from CSV</h1><p class="sub">The first set-up in one file: institutions, programmes, projects, batches and trainers. Nothing changes until you check it and press Apply. The same file twice changes nothing.</p></div>
+  <div><h1>Import from CSV</h1><p class="sub">Set up courses, institutions, programmes, batches and trainers from one file. Nothing changes until you press Apply.</p></div>
   <div class="actions"><a class="btn" href="/admin/import/template.csv">{{ icon("i-download") }}Template</a></div>
 </div>
 <div class="grid side-main">
@@ -11,7 +11,7 @@
     <div class="card-body">
       <form method="post" action="/admin/import/check" enctype="multipart/form-data">{% include "_guard.html" %}
         <label>CSV file<input type="file" name="file" accept=".csv,text/csv"></label>
-        <label>…or paste the rows<textarea name="text" rows="8" placeholder="institution,institution_code,programme,project,batch,mcq_batch,trainer_name,trainer_email"></textarea></label>
+        <label>…or paste the rows<textarea name="text" rows="8" placeholder="institution,institution_code,programme,course,project,batch,mcq_batch,trainer_name,trainer_email"></textarea></label>
         <button class="btn primary" type="submit">Check the file</button>
       </form>
     </div>
@@ -21,9 +21,10 @@
     <div class="card-body small">
       <p>{% for c in columns %}<code>{{ c }}</code>{% if not loop.last %} {% endif %}{% endfor %}</p>
       <ul>
-        <li>One row can make an institution, programme, project, batch and trainer, and link the trainer to the batch.</li>
-        <li>Projects are added in the order of the rows.</li>
-        <li>New trainers get a temporary password by email.</li>
+        <li><strong>course, project</strong> (no institution): Robomy's catalogue. Projects are added in the order of the rows.</li>
+        <li><strong>institution, programme, course</strong>: selects the course for the programme, with all its projects.</li>
+        <li><strong>institution, programme, project</strong> (no course): adds a project of another course.</li>
+        <li><strong>batch, trainer_name, trainer_email</strong>: makes the batch and trainer, adds the trainer to the institution and links the batch. New trainers get a temporary password by email.</li>
       </ul>
     </div>
   </div>

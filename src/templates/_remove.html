@@ -1,0 +1,21 @@
+{# One card at the bottom of a settings page: archive (keeps everything) or delete (for good). #}
+{% from "_ui.html" import icon %}
+{% macro remove_card(what, name, archived, base, archive_text, delete_text, archive_label="Archive", unarchive_label="Make active again") %}
+<div class="card remove-card">
+  <div class="card-head"><h2>Archive or delete</h2></div>
+  <div class="card-body">
+    <div class="remove-row">
+      <div><strong>{{ "Archived" if archived else archive_label }}</strong><div class="muted small">{{ archive_text }}</div></div>
+      {% if archived %}<form method="post" action="{{ base }}/unarchive">{% include "_guard.html" %}<button class="btn" type="submit">{{ unarchive_label }}</button></form>
+      {% else %}<form method="post" action="{{ base }}/archive">{% include "_guard.html" %}<button class="btn" type="submit" data-confirm="{{ archive_label }} {{ name }}?">{{ icon("i-archive", "sm") }}{{ archive_label }}</button></form>{% endif %}
+    </div>
+    <details class="remove-row delete-box">
+      <summary><div><strong class="danger-text">Delete</strong><div class="muted small">{{ delete_text }}</div></div><span class="btn danger">Delete…</span></summary>
+      <form method="post" action="{{ base }}/delete" class="form-row delete-form">{% include "_guard.html" %}
+        <label>Type <strong>{{ name }}</strong> to confirm<input name="confirm_name" required autocomplete="off"></label>
+        <button class="btn danger" type="submit" data-confirm="Delete {{ name }} for good? This cannot be undone from SkillOps.">Delete {{ what }}</button>
+      </form>
+    </details>
+  </div>
+</div>
+{% endmacro %}

@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 os.environ.update({
     "AWS_ACCESS_KEY_ID": "testing", "AWS_SECRET_ACCESS_KEY": "testing", "AWS_SESSION_TOKEN": "testing",
     "AWS_DEFAULT_REGION": "ap-south-1", "AWS_REGION": "ap-south-1",
-    "SIMLAB_SECRET": "unit-test-secret", "SIMLAB_NO_METRICS": "1", "LIVE_DATA_NAME": "SkillOps Live Data",
+    "SIMLAB_SECRET": "unit-test-secret", "SIMLAB_NO_METRICS": "1", "LIVE_DATA_NAME": "Live Data Simulator",
 })
 os.environ.pop("USER_POOL_ID", None)
 

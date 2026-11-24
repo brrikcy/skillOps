@@ -14,7 +14,7 @@
 <div class="page-head">
   <div>
     <div class="eyebrow">{% if bc %}<a href="/b/{{ bc.batch.id }}">{{ bc.batch.name }}</a> › {% endif %}{{ proj.name }}{% if readonly %} · v{{ pub.number }} (read-only view){% endif %}</div>
-    <h1>{{ proj.name }} runbook</h1>
+    <h1>{{ proj.name }} runbook{% if view_only %} <span class="badge grey">view only</span>{% endif %}</h1>
     {% if not readonly %}<p class="sub">{{ summ.done }} of {{ summ.total }} {{ pub.level_names[pub.checkable-1]|lower }}s complete{% if summ.position %} · furthest: <strong>{{ summ.position }}</strong>{% endif %}</p>{% endif %}
   </div>
   <div class="actions">
@@ -84,7 +84,7 @@
 
     <div class="rb-bottom">
       {% if prev_n %}<a class="btn" data-prev href="{{ base }}/i/{{ prev_n.id }}{% if present %}?present=1{% endif %}">{{ icon("i-left") }}Previous</a>{% else %}<span></span>{% endif %}
-      {% if node and node.checkable and not readonly %}
+      {% if node and node.checkable and not readonly and not view_only %}
       <div class="btn-row">
         <span class="save-state" data-save-state aria-live="polite"></span>
         {% if tick %}
@@ -99,11 +99,11 @@
       {% if next_n %}<a data-next class="btn {% if not (node and node.checkable) or tick %}primary{% endif %}" href="{{ base }}/i/{{ next_n.id }}{% if present %}?present=1{% endif %}">Next{{ icon("i-right") }}</a>{% else %}<span></span>{% endif %}
     </div>
 
-    {% if node and node.checkable and not readonly and not present %}
+    {% if node and node.checkable and not readonly and not view_only and not present %}
     <details class="rb-note" {% if note and note.text %}open{% endif %}>
       <summary class="small">{{ icon("i-note", "sm") }} Note for this batch{% if note and note.text %} · by {{ note.by_name }} · {{ note.at|when }}{% endif %}</summary>
       <form method="post" action="{{ base }}/i/{{ node.id }}/note" style="margin-top:8px">{% include "_guard.html" %}
-        <textarea name="text" rows="2" maxlength="1000" placeholder="For example: repeat 2.9 next time">{{ note.text if note else "" }}</textarea>
+        <textarea name="text" rows="2" maxlength="1000" placeholder="For example: the class asked about 2.9">{{ note.text if note else "" }}</textarea>
         <button class="btn sm" type="submit" style="margin-top:6px">Save note</button>
       </form>
     </details>

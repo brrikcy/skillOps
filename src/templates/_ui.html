@@ -12,11 +12,16 @@
 
 {% macro head(title, sub="", eyebrow="") %}
 <div class="page-head">
-  <div>{% if eyebrow %}<div class="eyebrow">{{ eyebrow }}</div>{% endif %}<h1>{{ title }}</h1>{% if sub %}<p class="sub">{{ sub }}</p>{% endif %}</div>
+  <div><h1>{{ title }}</h1>{% if sub %}<p class="sub">{{ sub }}</p>{% endif %}</div>
   <div class="actions">{{ caller() if caller else "" }}</div>
 </div>
 {% endmacro %}
 
 {% macro archived_toggle(show, base) %}
 {% if show %}<a class="btn sm ghost" href="{{ base }}">Hide archived</a>{% else %}<a class="btn sm ghost" href="{{ base }}?archived=1">Show archived</a>{% endif %}
+{% endmacro %}
+
+{# On the admin's monitoring pages: says the page only shows, and links to where the change is made. #}
+{% macro view_only(href="", label="") %}
+<span class="view-only" title="Monitoring pages only show. Changes are made in Settings (profile menu).">{{ icon("i-eye", "sm") }}View only</span>
 {% endmacro %}

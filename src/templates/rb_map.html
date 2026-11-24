@@ -1,73 +1,103 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon %}
-{% block content %}
-<div class="page-head">
-  <div><div class="eyebrow"><a href="/admin/runbooks">Runbooks</a> › <a href="/admin/runbooks/{{ rb.id }}">{{ rb.name }}</a> › v{{ v.number }}</div>
-    <h1>Map the structure</h1>
-    <p class="sub">These are the heading-like patterns found in the document, with how many times each appears. Choose a level for each, or "content" if it is not a heading. The suggestion is filled in; please check it.</p></div>
-</div>
-
-{% if templates %}
-<div class="card">
-  <div class="card-head"><h2>{{ icon("i-file") }} Saved templates</h2></div>
-  <div class="card-body">
-    <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/template" class="form-row">
-      {% include "_guard.html" %}
-      <label>Apply a template (match score)
-        <select name="template_id">{% for t in templates %}<option value="{{ t.id }}">{{ t.name }} — {{ t.score }}% match</option>{% endfor %}</select></label>
-      <button class="btn" type="submit">Apply</button>
-    </form>
+{% macro sample(p) %}
+{% set ex = p.examples[0] if p.examples else "" %}
+{% if p.sig.startswith("T|command") %}<span class="pat pat-cmd">{{ ex }}</span>
+{% elif p.sig.startswith("T|") %}<span class="pat pat-band" style="--f:#{{ p.fill or '6b7280' }}">{{ ex }}</span>
+{% elif p.sig.startswith("P|style:") %}<span class="pat pat-h">{{ ex }}</span>
+{% else %}<span class="pat pat-bold">{{ ex }}</span>{% endif %}
+{% endmacro %}
+{% macro row(p) %}
+<div class="pat-row {% if p.level %}is-heading{% endif %}" data-pat data-count="{{ p.count }}">
+  <div class="pat-look">
+    {{ sample(p) }}
+    <div class="pat-what">{{ p.plain }} · <strong>{{ p.count }}</strong> time{{ "" if p.count == 1 else "s" }}
+      {% if p.examples|length > 1 %}<span class="muted"> · also: {{ p.examples[1:]|join(" · ") }}</span>{% endif %}</div>
+    {% if p.words_list|length > 1 %}<div class="pat-words">{% for w, info in p.words_list[:10] %}<span class="badge" style="background:#{{ info.fill or '6b7280' }};color:#fff">{{ w }} {{ info.count }}</span>{% endfor %}</div>{% endif %}
+  </div>
+  <div class="pills" role="radiogroup" aria-label="Level for {{ p.plain }}">
+    <label class="pill"><input type="radio" name="lvl:{{ p.sig }}" value="0" {% if not p.level %}checked{% endif %}><span>Text</span></label>
+    {% for n in range(1, 5) %}<label class="pill"><input type="radio" name="lvl:{{ p.sig }}" value="{{ n }}" {% if p.level == n %}checked{% endif %}><span>{{ n }} · <em data-lvl-name="{{ n }}">{{ names[n-1] }}</em></span></label>{% endfor %}
   </div>
 </div>
-{% endif %}
-
-<form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/map">
-{% include "_guard.html" %}
-<div class="card flush">
-  <div class="card-head"><h2>Patterns</h2><span class="muted small">{{ v.blocks }} blocks read</span></div>
-  <div class="table-wrap"><table class="table">
-    <thead><tr><th>How it is drawn</th><th class="num">Count</th><th>Examples</th><th style="width:170px">Level</th></tr></thead>
-    <tbody>
-    {% for p in v.patterns %}
-    <tr>
-      <td><strong>{{ p.kind }}</strong>
-        <div class="muted small mono">{{ p.sig }}</div>
-        {% if p.fill %}<div class="small"><span class="swatch" style="background:#{{ p.fill }}"></span> fill #{{ p.fill }}</div>{% endif %}
-        {% if p.words_list %}<div class="small">{% for w, info in p.words_list %}<span class="badge" style="background:#{{ info.fill or 'eee' }};color:#fff">{{ w }} {{ info.count }}</span> {% endfor %}</div>{% endif %}
-      </td>
-      <td class="num"><strong>{{ p.count }}</strong></td>
-      <td class="examples">{% for e in p.examples %}<div title="{{ e }}">{{ e }}</div>{% endfor %}</td>
-      <td><select name="lvl:{{ p.sig }}" aria-label="Level for {{ p.kind }}">
-        <option value="0" {% if not p.level %}selected{% endif %}>Content, not a heading</option>
-        {% for n in range(1, 5) %}<option value="{{ n }}" {% if p.level == n %}selected{% endif %}>Level {{ n }} · {{ names[n-1] }}</option>{% endfor %}
-      </select></td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table></div>
+{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Confirm the structure</h1></div>
 </div>
+{% set step = 2 %}{% include "_rb_steps.html" %}
+
+<div class="card found">
+  <div class="card-body">
+    <div class="found-head">
+      <div>
+        <div class="eyebrow">What SkillOps found in {{ v.filename }}</div>
+        <div class="found-counts">
+          {% for n in range(1, 5) %}{% if v.counts.get(n|string) %}<div><b>{{ v.counts[n|string] }}</b><span>{{ names[n-1] }}{{ "s" if v.counts[n|string] != 1 }}{% if n == v.checkable %} <span class="badge teal">ticked</span>{% endif %}</span></div>{% endif %}{% endfor %}
+        </div>
+        <p class="muted small">
+          {% if applied %}Laid out like <strong>{{ applied.name }}</strong> ({{ applied.score }}% match), which you saved before.
+          {% elif v.template_id == "" and prev_number %}Laid out like version {{ prev_number }} of this runbook.
+          {% else %}Suggested from the document's own headings and coloured bands.{% endif %}
+          Trainers will tick each {{ names[v.checkable-1]|lower }}.</p>
+      </div>
+      <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/map/accept" class="found-go">{% include "_guard.html" %}
+        <button class="btn primary lg" type="submit">{{ icon("i-check") }}Looks right — check the tree</button>
+        <a class="btn ghost" href="#adjust">Change it</a>
+      </form>
+    </div>
+    {% if templates and (not applied or templates[0].id != applied.id) and templates[0].score >= 50 %}
+    <form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/template" class="tpl-offer">{% include "_guard.html" %}
+      {{ icon("i-file", "sm") }} Or lay it out like a saved template:
+      <select name="template_id" aria-label="Template">{% for t in templates %}<option value="{{ t.id }}">{{ t.name }} — {{ t.score }}% match</option>{% endfor %}</select>
+      <button class="btn sm" type="submit">Use it</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" action="/admin/runbooks/{{ rb.id }}/v/{{ v.id }}/map" data-map id="adjust">
+{% include "_guard.html" %}
+<div class="map-bar" aria-live="polite">
+  <span class="muted small">With these choices:</span>
+  {% for n in range(1, 5) %}<span class="map-count" data-lvl-box="{{ n }}"><b data-lvl-count="{{ n }}">0</b> {{ names[n-1] }}</span>{% endfor %}
+  <button class="btn primary sm" type="submit">Save and check the tree {{ icon("i-right", "sm") }}</button>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>Headings</h2></div>
+  <div class="card-body pat-list">
+    {% for p in heads %}{{ row(p) }}{% else %}<p class="muted">Nothing is a heading yet. Pick a level for a pattern below.</p>{% endfor %}
+  </div>
+</div>
+{% if texts %}
+<details class="card pat-more">
+  <summary class="card-head"><h2>{{ texts|length }} more pattern{{ "" if texts|length == 1 else "s" }} read as text</h2><span class="muted small">open to make one a heading</span></summary>
+  <div class="card-body pat-list">{% for p in texts %}{{ row(p) }}{% endfor %}</div>
+</details>
+{% endif %}
 
 <div class="grid two">
   <div class="card">
-    <div class="card-head"><h2>Level names</h2></div>
+    <div class="card-head"><h2>Names and the ticked level</h2></div>
     <div class="card-body">
       <div class="form-row">
-        {% for n in range(1, 5) %}<label>Level {{ n }}<input name="name{{ n }}" value="{{ names[n-1] }}" maxlength="30"></label>{% endfor %}
+        {% for n in range(1, 5) %}<label>Level {{ n }}<input name="name{{ n }}" value="{{ names[n-1] }}" maxlength="30" data-name-input="{{ n }}"></label>{% endfor %}
       </div>
-      <label>Trainers tick this level
-        <select name="checkable">{% for n in range(1, 5) %}<option value="{{ n }}" {% if v.checkable == n %}selected{% endif %}>Level {{ n }} · {{ names[n-1] }}</option>{% endfor %}</select>
-        <span class="hint">Higher levels show completion as a share of the items under them.</span></label>
+      <div class="small" style="margin:8px 0 4px">Trainers tick each</div>
+      <div class="pills">{% for n in range(1, 5) %}<label class="pill"><input type="radio" name="checkable" value="{{ n }}" {% if v.checkable == n %}checked{% endif %}><span><em data-lvl-name="{{ n }}">{{ names[n-1] }}</em></span></label>{% endfor %}</div>
     </div>
   </div>
   <div class="card">
-    <div class="card-head"><h2>Save as a template</h2></div>
+    <div class="card-head"><h2>Remember for next time</h2></div>
     <div class="card-body">
-      <label class="check"><input type="checkbox" name="save_template" value="1"> Save this mapping as a template</label>
-      <label>Template name<input name="template_name" maxlength="60" placeholder="for example Robomy runbook v3"></label>
-      <p class="muted small">The next runbook drawn the same way is offered this template with a match score.</p>
+      <label class="check"><input type="checkbox" name="save_template" value="1" checked> Remember this layout as a template</label>
+      <label>Template name<input name="template_name" maxlength="60" value="{{ template_name }}"></label>
+      <p class="muted small">The next upload drawn the same way is laid out like this on its own; you only check it.</p>
     </div>
   </div>
 </div>
-<div class="btn-row"><button class="btn primary lg" type="submit">Save and preview the tree {{ icon("i-right") }}</button></div>
+<div class="btn-row"><button class="btn primary lg" type="submit">Save and check the tree {{ icon("i-right") }}</button></div>
 </form>
 {% endblock %}

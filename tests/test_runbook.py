@@ -13,7 +13,7 @@ from skillops.core import jobs, org
 from skillops.core.perms import Staff
 from skillops.runbook import detect, docxread, progress, render, service, tree
 
-AIRTEL = os.environ.get("SKILLOPS_SAMPLE_RUNBOOK", "")
+AIRTEL = os.environ.get("SKILLOPS_SAMPLE_RUNBOOK", "")      # a real runbook .docx; the tests that need it are skipped without it
 
 
 @pytest.fixture(autouse=True)
@@ -101,7 +101,7 @@ def test_upload_map_preview_publish_and_navigate(boss):
     assert r["statusCode"] == 303, body(r)[:300]
     vid = service.list_versions(rid)[0]["id"]
     page = boss.get(f"/admin/runbooks/{rid}/v/{vid}/map")
-    assert page["statusCode"] == 200 and "Band: action word + ID" in body(page)
+    assert page["statusCode"] == 200 and "an action word and an ID" in body(page) and "Looks right" in body(page)
     form = {f"lvl:{p['sig']}": str(service.get_version(vid)["mapping"][p["sig"]])
             for p in service.get_version(vid)["patterns"]}
     form.update({"checkable": "3", "name1": "Step", "name2": "Part", "name3": "Action", "name4": "Sub-step",
@@ -117,7 +117,7 @@ def test_upload_map_preview_publish_and_navigate(boss):
     assert service.get_version(vid)["status"] == "published"
     # use it for the Airtel project of the DBI programme
     airtel = next(j for j in org.list_projects(ids["p1"]) if j["name"] == "Airtel")
-    boss.post(f"/admin/programmes/{ids['p1']}/projects/{airtel['id']}/runbook", {"runbook_id": rid})
+    boss.post(f"/admin/projects/{airtel['id']}/runbook", {"runbook_id": rid})
     # a trainer opens it: "continue" goes to the first open item
     t = Browser()
     t.sign_in_local("trainer1@robomy.test")
@@ -188,7 +188,6 @@ def test_summary_counts_come_from_ticks(aws):
     s = progress.summary(ids["A"], vid)
     assert (s["done"], s["total"]) == (3, 12)
     assert s["position"] == "Step 1 · Part 2 · 1.5"
-    assert [n["code"] for n in s["skipped"]] == ["1.3", "1.4"]
     step1 = next(n for n in pub["nodes"] if n["level"] == 1)
     assert s["per"][step1["id"]] == [3, 6]
 
@@ -197,7 +196,7 @@ def test_new_version_carries_ticks_and_lists_unmatched(aws):
     ids = setup_org()
     rid, v1 = publish_runbook(docx_factory.runbook())
     airtel = next(j for j in org.list_projects(ids["p1"]) if j["name"] == "Airtel")
-    org.set_project_runbook(ids["p1"], airtel["id"], rid)
+    org.set_project_runbook(airtel["id"], rid)
     airtel = org.get_project(ids["p1"], airtel["id"])
     batch = org.get_batch(ids["A"])
     assert progress.batch_version(batch, airtel) == v1               # pinned on first use

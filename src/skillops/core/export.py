@@ -72,23 +72,33 @@ def _csv_files(data):
     by_type = {}
     for i in core:
         by_type.setdefault(i.get("type", ""), []).append(i)
-    names = {i["id"]: i["name"] for i in core if i.get("type") in ("institution", "programme", "batch")}
+    names = {i["id"]: i["name"] for i in core if i.get("type") in ("institution", "programme", "batch", "course",
+                                                                     "project")}
     files = {
         "institutions.csv": _csv(["id", "name", "code", "archived", "created_at"],
                                  [[i["id"], i["name"], i["code"], i.get("archived"), i["created_at"]]
                                   for i in by_type.get("institution", [])]),
-        "programmes.csv": _csv(["id", "institution", "name", "archived", "created_at"],
-                               [[p["id"], names.get(p["inst_id"], p["inst_id"]), p["name"], p.get("archived"),
-                                 p["created_at"]] for p in by_type.get("programme", [])]),
-        "projects.csv": _csv(["programme", "order", "project id", "name", "runbook id", "archived"],
-                             [[names.get(p["prog_id"], p["prog_id"]), p.get("order"), p["id"], p["name"],
-                               p.get("runbook_id", ""), p.get("archived")] for p in by_type.get("project", [])]),
+        "programmes.csv": _csv(["id", "institution", "name", "courses", "projects added", "projects taken out",
+                                "archived", "created_at"],
+                               [[p["id"], names.get(p["inst_id"], p["inst_id"]), p["name"],
+                                 "; ".join(names.get(c, c) for c in p.get("courses") or []),
+                                 "; ".join(names.get(j, j) for j in p.get("extra_projects") or []),
+                                 "; ".join(names.get(j, j) for j in p.get("removed_projects") or []),
+                                 p.get("archived"), p["created_at"]] for p in by_type.get("programme", [])]),
+        "courses.csv": _csv(["id", "name", "created_at"],
+                            [[c["id"], c["name"], c["created_at"]] for c in by_type.get("course", [])]),
+        "projects.csv": _csv(["course", "order", "project id", "name", "runbook id"],
+                             [[names.get(p.get("course_id"), p.get("course_id", "")), p.get("order"), p["id"],
+                               p["name"], p.get("runbook_id", "")] for p in by_type.get("project", [])]),
         "batches.csv": _csv(["id", "institution", "programme", "name", "MCQ batch name", "archived"],
                             [[b["id"], names.get(b["inst_id"], ""), names.get(b["prog_id"], ""), b["name"],
                               b.get("mcq_batch", ""), b.get("archived")] for b in by_type.get("batch", [])]),
         "trainers.csv": _csv(["email", "name", "enabled", "created_at"],
                              [[t["email"], t["name"], t.get("enabled"), t["created_at"]]
                               for t in by_type.get("trainer", [])]),
+        "trainer_institutions.csv": _csv(["trainer email", "institution id", "institution", "since"],
+                                         [[m["email"], m["inst_id"], names.get(m["inst_id"], ""), m.get("since", "")]
+                                          for m in by_type.get("member", [])]),
         "associations.csv": _csv(["trainer email", "batch id", "batch", "active", "since", "until"],
                                  [[a["email"], a["batch_id"], names.get(a["batch_id"], ""), a.get("active"),
                                    a.get("since", ""), a.get("until", "")] for a in by_type.get("assoc", [])]),
