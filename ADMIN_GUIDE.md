@@ -10,7 +10,7 @@ SkillOps has two sides for you:
 - **Settings** — open the profile menu (your initial, top right) → **Settings**. Every change is made here:
   institutions and programmes, batches (trainers, class days, current project, marking a project complete,
   runbook versions, and the batch's Live Data Simulator and MCQ tests), trainers, courses, runbooks, simulator
-  data, MCQ connections, import, export and the Dashboard tabs. A gold bar across the top lists the Settings pages.
+  data, MCQ tests, import, export and the Dashboard tabs. A gold bar across the top lists the Settings pages.
 
 Who a screen is for shows at a glance: your top bar is **navy** with an **Admin** badge that says *Monitoring* or
 *Settings* (click it to switch; Settings also has a gold line under the bar). Trainers see a white bar with a

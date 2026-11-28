@@ -8,6 +8,7 @@
 <link rel="icon" href="{{ static('favicon.svg') }}" type="image/svg+xml">
 </head>
 <body class="{% block body_class %}{% endblock %}{% if embed %} embed{% endif %}{% if role %} role-{{ role }}{% endif %}{% if role == 'admin' %} area-{{ area }}{% endif %}{% if nav and req and req.cookies.get("so_nav") == "closed" %} nav-closed{% endif %}{% if not nav %} no-side{% endif %}">
+<a class="skip-link" href="#main">Skip to the page content</a>
 <header class="topbar">
   <div class="top-left">{% if nav %}<button class="nav-toggle" type="button" data-nav-toggle aria-label="Show or hide the menu" title="Menu" aria-controls="side-menu">{{ icon("i-menu") }}</button>{% endif %}{% if role == "admin" %}<a class="role-chip" href="{{ '/dashboard' if area == 'settings' else '/settings' }}"{% if area != 'settings' %} data-settings-open{% endif %} title="{{ 'You are changing settings. Click to go back to monitoring.' if area == 'settings' else 'You are monitoring (view only). Click to open Settings.' }}">{{ icon("i-shield", "sm") }}<span class="role-name">Admin</span>{% if area == "settings" %}<span class="role-mode">{{ icon("i-settings", "sm") }}Settings</span>{% endif %}</a>{% elif role == "trainer" %}<span class="role-chip" title="Trainer">{{ icon("i-board", "sm") }}<span class="role-name">Trainer</span></span>{% endif %}{% if page.logo %}<img class="inst-logo" src="{{ page.logo }}" alt="{{ page.institution.name }} logo">{% endif %}</div>
   <a class="brand" href="/" aria-label="{{ platform_name() }} home">
@@ -49,7 +50,7 @@
   </nav>
   {% endif %}
   {% if nav %}<div class="nav-backdrop" data-nav-close></div>{% endif %}
-  <main class="content">
+  <main class="content" id="main" tabindex="-1">
     {% if settingsbar %}<nav class="settingsbar" aria-label="Settings">
       <a class="settingsbar-home{% if req.path == '/settings' %} on{% endif %}" href="/settings">{{ icon("i-settings", "sm") }}Settings</a>
       {% for label, href, ico, on in settingsbar %}<a href="{{ href }}" class="{% if on %}on{% endif %}"{% if on %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
@@ -58,9 +59,10 @@
       {% for label, href in trail if href %}<li><a href="{{ href }}">{{ label }}</a></li>{% endfor %}
     </ol></nav>{% endif %}
     {% if flash %}<div class="flash {{ flash.kind }}" role="status">{{ flash.message }}</div>{% endif %}
-    {% block content %}{% endblock %}
+    {% set _page = self.content() %}{% if "<h1" not in _page %}<h1 class="sr-only">{{ title }}</h1>{% endif %}{{ _page }}
   </main>
 </div>
+{% if not embed %}{% include "_footer.html" %}{% endif %}
 {% if settings_groups and not embed %}
 <div class="so-settings" id="so-settings" role="dialog" aria-modal="true" aria-label="Settings" hidden>
   <div class="so-settings-box">

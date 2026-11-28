@@ -431,6 +431,7 @@
       fetch(panel.getAttribute("data-refresh-url"), { credentials: "same-origin", headers: { "x-requested-with": "fetch-html" } })
         .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
         .then(function (html) {
+          if (document.querySelector(".so-modal")) return;      // a confirmation is open: keep the button it will click
           panel.innerHTML = html;
           if (stamp) stamp.textContent = "Updated " + new Date().toLocaleTimeString("en-IN");
         })
@@ -635,4 +636,13 @@
     document.addEventListener("focusout", hideTip);
     window.addEventListener("scroll", hideTip, { passive: true });
   }
+  // ---------------------------------------------------------------- skip link: move focus to the page, not just the scroll position
+  (function () {
+    var skip = document.querySelector(".skip-link");
+    if (!skip) return;
+    skip.addEventListener("click", function () {
+      var main = document.getElementById("main");
+      if (main) setTimeout(function () { main.focus({ preventScroll: false }); }, 0);
+    });
+  })();
 })();

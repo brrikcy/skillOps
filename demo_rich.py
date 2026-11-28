@@ -99,7 +99,9 @@ def _plans(bid, project, vid, weekdays, staff, past, coming, say=None):
 def _students(ids, say):
     from skillops.livedata import students, timeutil
     names = ["Aarav Sharma", "Ananya Iyer", "Vihaan Gupta", "Diya Patel", "Arjun Reddy", "Meera Nair", "Rohan Das", "Isha Verma",
-             "Kabir Singh", "Saanvi Rao", "Aditya Joshi", "Navya Menon", "Dev Kapoor", "Riya Bose"]
+             "Kabir Singh", "Saanvi Rao", "Aditya Joshi", "Navya Menon", "Dev Kapoor", "Riya Bose", "Karthik Subramanian", "Pooja Hegde",
+             "Imran Qureshi", "Sneha Kulkarni", "Harsh Vardhan", "Lakshmi Prasad", "Nikhil Chawla", "Tanvi Deshmukh", "Faisal Ahmed",
+             "Divya Pillai", "Yash Malhotra", "Ritika Agarwal", "Siddharth Menon", "Aishwarya Rao", "Mohit Saxena", "Bhavna Joshi"]
     now = timeutil.now_us()
     try:
         code = students.create_code(ids["A"], 60, 24 * 60, False, "demo", now)["code"]
@@ -156,10 +158,11 @@ def seed_rich(ids, say=print):
     t4 = _staff("trainer4@local.test", "Trainer 4", [ids["b2"]])
     air, ipl, hdfc, uber = (p1_projects[n] for n in ("Airtel", "IPL", "HDFC", "Uber"))
     air_w = next(j for j in org.list_projects(org.get_batch(ids["b2"])["prog_id"]) if j["name"] == "Airtel")
-    plan = [(ids["A"], [t1], [(ipl, 60, 26), (air, 46, 16), (hdfc, 14, 6), (uber, 4, 2)]),
-            (ids["B"], [t2], [(ipl, 34, 22), (air, 22, 14), (hdfc, 5, 4)]),
-            (ids["C"], [t3], [(ipl, 18, 20), (air, 12, 10)]),
-            (ids["b2"], [t1, t4], [(air_w, 17, 12)])]
+    # (batch, trainers, [(project, items ticked, over how many days)]): a mix of finished, part-done and just-started work
+    plan = [(ids["A"], [t1], [(ipl, 418, 62), (air, 301, 40), (hdfc, 150, 18), (uber, 46, 5)]),
+            (ids["B"], [t2], [(ipl, 330, 55), (air, 205, 34), (hdfc, 72, 10)]),
+            (ids["C"], [t3], [(ipl, 190, 42), (air, 118, 20), (hdfc, 24, 4)]),
+            (ids["b2"], [t1, t4], [(air_w, 262, 36)])]
     vids = {}
     for bid, staffs, rows in plan:
         for proj, n, days in rows:
@@ -169,15 +172,22 @@ def seed_rich(ids, say=print):
                                           (ids["A"], air, 18, "Students liked the shop tables; slow down on GROUP BY.", t1),
                                           (ids["A"], ipl, 9, "Two students missed this class: share the recap.", t1),
                                           (ids["B"], air, 7, "Class ran short: finish the SQL toolkit warm-up.", t2),
-                                          (ids["C"], ipl, 4, "Projector failed for 20 minutes.", t3)):
+                                          (ids["C"], ipl, 4, "Projector failed for 20 minutes.", t3),
+                                          (ids["A"], ipl, 40, "Cricket examples worked well; keep them for the next batch.", t1),
+                                          (ids["A"], air, 60, "Pair the students for the cleaning step; it goes faster.", t1),
+                                          (ids["A"], hdfc, 12, "Explain the loan terms once more with a small table.", t1),
+                                          (ids["B"], ipl, 33, "Four students asked for extra practice on joins.", t2),
+                                          (ids["B"], air, 50, "Share the churn definition in writing before class.", t2),
+                                          (ids["C"], air, 20, "Slow network in the lab; download the dataset early.", t3),
+                                          (ids["b2"], air_w, 30, "Weekend group is keen; add a short quiz at the end.", t4)):
         vid = vids.get((bid, proj["id"]))
         if vid:
             cks = service.published(vid)["checkables"]
             progress.save_note(bid, vid, cks[min(node_i, len(cks) - 1)]["id"], text, who)
-    _plans(ids["A"], air, vids[(ids["A"], air["id"])], ["0", "1", "3"], t1, 4, 4)
-    _plans(ids["B"], air, vids[(ids["B"], air["id"])], ["1", "4"], t2, 3, 3)
-    _plans(ids["C"], air, vids[(ids["C"], air["id"])], ["2", "5"], t3, 2, 3)
-    _plans(ids["b2"], air_w, vids[(ids["b2"], air_w["id"])], ["5", "6"], t4, 2, 3)
+    _plans(ids["A"], air, vids[(ids["A"], air["id"])], ["0", "1", "3"], t1, 9, 6)
+    _plans(ids["B"], air, vids[(ids["B"], air["id"])], ["1", "4"], t2, 7, 5)
+    _plans(ids["C"], air, vids[(ids["C"], air["id"])], ["2", "5"], t3, 6, 5)
+    _plans(ids["b2"], air_w, vids[(ids["b2"], air_w["id"])], ["5", "6"], t4, 6, 4)
     say("  class days and plans for every batch")
     _students(ids, say)
     _audit()

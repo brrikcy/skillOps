@@ -20,7 +20,7 @@
         <select name="runbook_id" class="quiet-select" aria-label="Runbook for {{ j.name }}" data-autosubmit><option value="">No runbook</option>{% for r in runbooks %}<option value="{{ r.id }}" {% if j.runbook_id == r.id %}selected{% endif %}>{{ r.name }} · v{{ r.latest_number }}</option>{% endfor %}</select>
         <noscript><button class="btn sm" type="submit">Use</button></noscript></form>
         {% if j.runbook_id and j.runbook_id not in runbooks|map(attribute="id")|list %}<div class="small muted">{{ rb_names.get(j.runbook_id, j.runbook_id) }} (not published)</div>{% endif %}</td>
-      <td class="right nowrap">
+      <td class="right nowrap"><div class="row-actions">
         <form method="post" action="/admin/projects/{{ j.id }}/move" class="inline">{% include "_guard.html" %}<button class="btn sm ghost" name="direction" value="up" {% if loop.first %}disabled{% endif %} aria-label="Move {{ j.name }} up" title="Move up">↑</button></form>
         <form method="post" action="/admin/projects/{{ j.id }}/move" class="inline">{% include "_guard.html" %}<button class="btn sm ghost" name="direction" value="down" {% if loop.last %}disabled{% endif %} aria-label="Move {{ j.name }} down" title="Move down">↓</button></form>
         <details class="row-menu">
@@ -33,7 +33,7 @@
             <form method="post" action="/admin/projects/{{ j.id }}/delete">{% include "_guard.html" %}<button class="menu-item danger-text" type="submit" data-confirm="Delete project {{ j.name }} for good? Every programme that has it loses it, and batches lose their place in it.">{{ icon("i-x", "sm") }}Delete</button></form>
           </div>
         </details>
-      </td>
+      </div></td>
     </tr>
     {% endfor %}
     </tbody>

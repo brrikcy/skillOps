@@ -1,0 +1,10 @@
+{% from "_ui.html" import icon %}
+{# One quiet footer on every page: where to get help, how to tell us, and which build this is. #}
+<footer class="site-foot" aria-label="Help and information">
+  <span class="site-foot-name">{{ platform_name() }}</span>
+  <nav class="site-foot-links" aria-label="Help">
+    {% if staff %}<a href="/help">{{ icon("i-help", "sm") }}Help</a>{% else %}<a href="/register">Register</a><a href="/docs">Developer docs</a>{% endif %}
+    {% if support_email() %}<a href="mailto:{{ support_email() }}?subject={{ ('Feedback on ' ~ platform_name()) | urlencode }}">{{ icon("i-mail", "sm") }}Send feedback</a>{% endif %}
+  </nav>
+  <span class="site-foot-build" title="The version of the pages you are using">Build {{ build_id() }}</span>
+</footer>

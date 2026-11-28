@@ -48,8 +48,8 @@
       {% for d in f.datasets %}
       <tr><td><code>{{ d.dataset }}</code></td><td>{% if d.active %}<span class="badge teal">yes</span>{% else %}<span class="badge grey">no</span>{% endif %}</td>
         <td class="num">{{ "{:,}".format(d.rows_total or 0) }}</td><td class="num">{{ "{:,}".format(d.rows_released or 0) }}</td><td>{{ d.version }}</td>
-        <td class="right nowrap"><form method="post" action="/admin/live/dataset" class="inline">{% include "_guard.html" %}<input type="hidden" name="dataset" value="{{ d.dataset }}"><input type="hidden" name="active" value="{{ '0' if d.active else '1' }}"><button class="btn sm ghost" type="submit">{{ "Turn off" if d.active else "Activate" }}</button></form>
-          <form method="post" action="/admin/live/delete" class="inline">{% include "_guard.html" %}<input type="hidden" name="dataset" value="{{ d.dataset }}"><button class="btn sm ghost danger-text" type="submit" title="Delete this dataset" aria-label="Delete {{ d.dataset }}" data-confirm="Delete dataset {{ d.dataset }} and all its {{ '{:,}'.format(d.rows_total or 0) }} rows? Students fetching it will get 'unknown dataset'. This cannot be undone.">{{ icon("i-x", "sm") }}</button></form></td></tr>
+        <td class="right nowrap"><div class="row-actions"><form method="post" action="/admin/live/dataset" class="inline">{% include "_guard.html" %}<input type="hidden" name="dataset" value="{{ d.dataset }}"><input type="hidden" name="active" value="{{ '0' if d.active else '1' }}"><button class="btn sm ghost" type="submit">{{ "Turn off" if d.active else "Activate" }}</button></form>
+          <form method="post" action="/admin/live/delete" class="inline">{% include "_guard.html" %}<input type="hidden" name="dataset" value="{{ d.dataset }}"><button class="btn sm ghost danger-text" type="submit" title="Delete this dataset" aria-label="Delete {{ d.dataset }}" data-confirm="Delete dataset {{ d.dataset }} and all its {{ '{:,}'.format(d.rows_total or 0) }} rows? Students fetching it will get 'unknown dataset'. This cannot be undone.">{{ icon("i-x", "sm") }}</button></form></div></td></tr>
       {% endfor %}
       </tbody>
     </table></div>

@@ -185,21 +185,19 @@ def build_word(prefix, caps=True, color="#1d2d50", o_color=None, steps=False, ga
     return svg, width, (BASE if caps else DESC)
 
 
-ROBOMY_PNG = base64.b64encode(open(os.path.join(ROOT, "robomy-logo.png"), "rb").read()).decode()
+# ROBOMY as vector shapes, traced from its picture by tools/vectorize_robomy.py (so it is sharp at any size)
+ROBOMY_PATHS = open(os.path.join(HERE, "robomy_paths.svgfrag"), encoding="utf-8").read()
 
 
 def lockup(style, prefix="l", divider="#d5d9e0"):
     word, w, bottom = build_word(prefix, **style)
-    space = 30
-    div_x = 539 + space
-    word_x = div_x + space
+    word_x = 544 + 40                                  # ROBOMY is 544 wide; one clear gap, no divider line
     width = word_x + w
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="6 2 {width - 4:g} {bottom - 2 + 6:g}" role="img" '
             f'aria-label="Robomy SkillOps">\n'
-            f'  <!-- One logo: ROBOMY exactly as it is, a thin divider, and SKILLOPS drawn to ROBOMY\'s letter rules\n'
-            f'       (tools/make_logo.py). -->\n'
-            f'  <image href="data:image/png;base64,{ROBOMY_PNG}" x="0" y="0" width="544" height="106"/>\n'
-            f'  <rect x="{div_x - 1.5}" y="18" width="3" height="68" rx="1.5" fill="{divider}"/>\n'
+            f'  <!-- One logo: ROBOMY as it is (vector, traced from its picture) and SKILLOPS drawn to ROBOMY\'s letter\n'
+            f'       rules (tools/make_logo.py). No divider line between them. -->\n'
+            f'  <g>{ROBOMY_PATHS}</g>\n'
             f'  <g transform="translate({word_x} 0)">{word}</g>\n</svg>\n')
 
 

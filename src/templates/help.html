@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Help</h1><p class="sub">Short answers for the things you do most. Nothing here changes your data.</p></div>
+</div>
+
+<div class="help-grid">
+  <nav class="card help-toc" aria-label="On this page">
+    <div class="card-body">
+      <strong>On this page</strong>
+      <a href="#day">Your day in three steps</a>
+      <a href="#runbook">Reading the runbook</a>
+      <a href="#tools">MCQ tests and Live Data Simulator</a>
+      <a href="#stuck">If something goes wrong</a>
+      {% if is_super %}<a href="#super">For the supervisor</a>{% endif %}
+    </div>
+  </nav>
+
+  <div class="help-body">
+    <section class="card" id="day">
+      <div class="card-head"><h2>{{ icon("i-play") }} Your day in three steps</h2></div>
+      <div class="card-body">
+        <ol class="help-steps">
+          <li><strong>Open the Overview.</strong> Each batch shows what is happening today. Press <em>Teach</em> if the session is planned, or <em>Plan today</em> if it is not.</li>
+          <li><strong>Plan the session.</strong> Open the batch, then <em>Today</em> or <em>Calendar</em>. Add the parts you will teach, add a break or a note if you like, and press <em>Save plan</em>. <em>Download PDF</em> gives you the plan in the runbook's own style.</li>
+          <li><strong>Teach and mark done.</strong> <em>Teach</em> opens the day's plan. Tick each part as you finish it. It is saved at once, and <em>Saved</em> appears when it is safe.</li>
+        </ol>
+        <p class="muted small">Class days are set by your supervisor. A class day with no plan is shown as "not planned yet" until you save one.</p>
+      </div>
+    </section>
+
+    <section class="card" id="runbook">
+      <div class="card-head"><h2>{{ icon("i-book") }} Reading the runbook</h2></div>
+      <div class="card-body">
+        <ul class="help-list">
+          <li>Runbooks open in a large window as the original PDF. Scroll down to read; use the list of sections on the left to jump.</li>
+          <li>Open a runbook from a project name on your batch page, or from any part in the plan.</li>
+          <li>Add a note to any item for your own reference. Notes show on the batch page under <em>Trainer notes</em>.</li>
+          <li><em>Recap</em> (in the batch's Today tab) writes a short message about what a class covered, ready to copy and send.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" id="tools">
+      <div class="card-head"><h2>{{ icon("i-test") }} MCQ tests and Live Data Simulator</h2></div>
+      <div class="card-body">
+        <ul class="help-list">
+          <li><strong>MCQ tests</strong> (batch, then <em>Tools</em>): open or close a test, watch students live and add time, then read results and the marks register. You can also allow a re-attempt for one student.</li>
+          <li><strong>Live Data Simulator</strong> (batch, then <em>Tools</em>): make a join code and show it to the class. Students register once at the Register address and get their own key.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" id="stuck">
+      <div class="card-head"><h2>{{ icon("i-help") }} If something goes wrong</h2></div>
+      <div class="card-body">
+        <dl class="help-qa">
+          <dt>I cannot see my batch.</dt><dd>Your supervisor links trainers to batches. Ask them to add you.</dd>
+          <dt>It says no runbook is in use.</dt><dd>The supervisor chooses a runbook for each project. Until then, the project shows nothing to teach.</dd>
+          <dt>A page shows an error.</dt><dd>Press <em>Go back</em> and try again. If it repeats, send the Request ID printed on that page to your supervisor{% if support_email() %} or to <a href="mailto:{{ support_email() }}">{{ support_email() }}</a>{% endif %}. It lets us find exactly what happened.</dd>
+          <dt>I forgot my password.</dt><dd>On the sign-in page press <em>Forgot password?</em> and use the code that is emailed to you.</dd>
+        </dl>
+      </div>
+    </section>
+
+    {% if is_super %}
+    <section class="card" id="super">
+      <div class="card-head"><h2>{{ icon("i-settings") }} For the supervisor</h2></div>
+      <div class="card-body">
+        <ul class="help-list">
+          <li>The left menu is for monitoring only. Every change is made in <em>Settings</em> (account menu at the top right).</li>
+          <li><strong>Runbooks:</strong> upload the Word file, check how it was read, publish it, then add the PDF so session PDFs and the reader use the original pages. Choose the runbook for each project under <em>Courses</em>.</li>
+          <li><strong>Batches:</strong> set class days, link trainers and choose each batch's current project. You can mark a whole project complete for a batch.</li>
+          <li><strong>MCQ tests</strong> (Settings) and <strong>Live Data Simulator</strong> are connected once per institution. <em>Health</em> shows whether they answer.</li>
+          <li>The <em>Audit log</em> records who changed what; <em>Export</em> downloads the data.</li>
+        </ul>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

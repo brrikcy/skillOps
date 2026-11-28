@@ -10,7 +10,7 @@ import os
 import re
 import traceback
 
-from .core import audit, auth, html, perms, util
+from .core import assets, audit, auth, html, perms, util
 from .core.http import Request, Response, html as html_response, json_response, redirect, safe_next, q
 from .core.util import Forbidden, UserError
 
@@ -120,7 +120,7 @@ SETTINGS_NAV = [
     ("Organisation", [("Institutions", "/admin/institutions", "i-building"), ("Batches", "/admin/batches", "i-users"),
                       ("Trainers", "/admin/trainers", "i-user")]),
     ("Content", [("Courses", "/admin/courses", "i-steps"), ("Runbooks", "/admin/runbooks", "i-book")]),
-    ("Tools", [("Live Data Simulator", "/admin/live", "i-db"), ("MCQ connections", "/admin/mcq", "i-test")]),
+    ("Tools", [("Live Data Simulator", "/admin/live", "i-db"), ("MCQ tests", "/admin/mcq", "i-test")]),
     ("Data", [("Import from CSV", "/admin/import", "i-upload"), ("Export", "/admin/export", "i-download")]),
 ]
 SETTINGS_DESC = {
@@ -312,6 +312,24 @@ for _rt in list(ROUTES):
                             _rt.fn, "super", _rt.name, _rt.audit))
 
 
+_STATIC_CACHE = {}                      # (name, file time) -> (plain bytes, gzip bytes), made once per process
+_COMPRESSIBLE = (".css", ".js", ".svg", ".json", ".html", ".txt")
+
+
+def _static_bytes(name, path):
+    key = (name, os.path.getmtime(path))
+    hit = _STATIC_CACHE.get(key)
+    if hit:
+        return hit
+    with open(path, "rb") as f:
+        data = f.read()
+    if name == "style.css":                                 # the served copy is leaner than the readable source
+        data = assets.optimise_css(data.decode("utf-8")).encode("utf-8")
+    packed = assets.gzip_bytes(data) if name.endswith(_COMPRESSIBLE) else None
+    _STATIC_CACHE[key] = (data, packed)
+    return _STATIC_CACHE[key]
+
+
 def _serve_static(req):
     name = req.path[len("/static/"):]
     if not re.match(r"^[A-Za-z0-9_\-]+\.[a-z0-9]+$", name):
@@ -319,12 +337,17 @@ def _serve_static(req):
     path = os.path.join(html.STATIC, name)
     if not os.path.isfile(path):
         return None
-    with open(path, "rb") as f:
-        data = f.read()
+    data, packed = _static_bytes(name, path)
     ctype = mimetypes.guess_type(name)[0] or "application/octet-stream"
     if ctype.startswith("text/") or ctype.endswith("javascript"):
         ctype += "; charset=utf-8"
-    return Response(200, data, {"content-type": ctype, "cache-control": "public, max-age=3600"}, binary=True)
+    # Pages ask for /static/x?v=<hash of all static files>: that address never changes its content, so it can be
+    # kept for a year. Without the hash the file is re-checked every hour.
+    cache = "public, max-age=31536000, immutable" if req.query.get("v") else "public, max-age=3600"
+    headers = {"content-type": ctype, "cache-control": cache, "vary": "accept-encoding"}
+    if packed and "gzip" in (req.headers.get("accept-encoding") or "").lower():
+        data, headers["content-encoding"] = packed, "gzip"
+    return Response(200, data, headers, binary=True)
 
 
 def _no_session(ctx, rt):
@@ -415,7 +438,8 @@ def error_page(req, status, message, next_step, ctx=None):
     ctx = ctx or Ctx(req)
     back = req.headers.get("referer") or "/"
     try:
-        return ctx.render("error.html", status=status, code=status, title="Something needs attention", message=message,
+        title = {403: "Not allowed", 404: "Page not found"}.get(status, "Something needs attention")
+        return ctx.render("error.html", status=status, code=status, title=title, message=message,
                           next_step=next_step, request_id=req.request_id, back=back)
     except Exception:  # noqa: BLE001  (the error page must never fail)
         traceback.print_exc()

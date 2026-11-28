@@ -39,6 +39,7 @@ env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoesca
                   trim_blocks=True, lstrip_blocks=True)
 env.globals.update(platform_name=config.platform_name, company=config.company,
                    live_data_name=config.live_data_name, static=static, local_mode=config.local_mode,
+                   support_email=config.support_email, build_id=lambda: _VERSION,
                    new_idem=lambda: uuid.uuid4().hex, pct=pct)
 env.filters["when"] = util.show_time
 env.filters["q"] = lambda v: quote(str(v), safe="")

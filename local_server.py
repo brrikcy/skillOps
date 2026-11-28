@@ -92,6 +92,8 @@ def main():
                     help="add sample institutions, batches, trainers, the sample runbook, live data and a fake MCQ system")
     ap.add_argument("--sample", action="store_true",
                     help="with --seed: also fill every screen with temporary sample data (ticks over weeks, plans, students, audit)")
+    ap.add_argument("--runbook", default="",
+                    help="with --seed: the runbook .docx to use (a .pdf with the same name beside it is attached too)")
     args = ap.parse_args()
     local_env()
     from moto import mock_aws
@@ -102,7 +104,9 @@ def main():
         store.create_buckets()
         if args.seed:
             import demo
-            ids = demo.seed_all(say=print)
+            if args.runbook:
+                demo.SAMPLE_RUNBOOK = args.runbook
+            ids = demo.seed_all(say=print, runbook=demo.SAMPLE_RUNBOOK)
             if args.sample:
                 import demo_rich
                 demo_rich.seed_rich(ids, say=print)

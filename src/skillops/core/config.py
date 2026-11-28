@@ -31,6 +31,11 @@ def company():
     return "Robomy"
 
 
+def support_email():
+    """Where people write for help (SUPPORT_EMAIL). Empty means no mail link is shown."""
+    return _get("SUPPORT_EMAIL").strip()
+
+
 def region():
     return _get("AWS_REGION") or _get("AWS_DEFAULT_REGION") or "ap-south-1"
 

@@ -21,7 +21,7 @@
       <td><strong>{{ p.project.name }}</strong>{% if is_cur %} <span class="badge brand">Current</span>{% endif %}</td>
       <td>{% if s %}{{ bar(s.done, s.total, teal=complete) }}{% else %}<span class="muted">—</span>{% endif %}</td>
       <td>{% if complete %}<span class="badge teal">Complete</span>{% elif not s %}<span class="badge grey">No runbook</span>{% elif s.done %}<span class="badge brand">In progress</span>{% else %}<span class="badge grey">Not started</span>{% endif %}</td>
-      <td class="right nowrap">{% if s and not is_cur %}
+      <td class="right nowrap"><div class="row-actions">{% if s and not is_cur %}
         <form method="post" action="/admin/batches/{{ bid }}/current-project" class="inline">{% include "_guard.html" %}
           <input type="hidden" name="project" value="{{ p.project.id }}"><button class="btn sm ghost" type="submit" title="Make this the project the batch is in now">Set as current</button></form>{% endif %}
         {% if not complete %}
@@ -29,7 +29,7 @@
           <button class="btn sm" type="submit" data-confirm="Mark {{ p.project.name }} complete for {{ page.batch.name }}?{% if s %} The {{ s.total - s.done }} item{{ '' if s.total - s.done == 1 else 's' }} not yet done will be marked done in your name.{% else %} It has no runbook, so nothing else is marked.{% endif %}">{{ icon("i-check", "sm") }}Mark complete</button></form>
         {% elif not s %}
         <form method="post" action="/admin/batches/{{ bid }}/projects/{{ p.project.id }}/reopen" class="inline">{% include "_guard.html" %}
-          <button class="btn sm ghost" type="submit">Reopen</button></form>{% endif %}</td>
+          <button class="btn sm ghost" type="submit">Reopen</button></form>{% endif %}</div></td>
     </tr>
     {% endfor %}
     </tbody>

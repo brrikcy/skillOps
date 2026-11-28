@@ -21,10 +21,10 @@
       <td class="num">{{ s.warnings }}</td>
       <td class="num">{% if s.status == "IN PROGRESS" %}{{ (s.remainingSec // 60) }}:{{ "%02d"|format(s.remainingSec % 60) }}{% else %}—{% endif %}</td>
       <td class="num">{{ s.score if s.score != "" else "—" }}</td>
-      <td class="right nowrap">{% if can_edit and s.status == "IN PROGRESS" %}
+      <td class="right nowrap"><div class="row-actions">{% if can_edit and s.status == "IN PROGRESS" %}
         <form method="post" action="{{ bbase }}/mcq/monitor/{{ tid }}/session" class="inline">{% include "_guard.html" %}<input type="hidden" name="session" value="{{ s.id }}"><input type="hidden" name="minutes" value="5"><button class="btn sm" name="action" value="add">+5 min</button></form>
         <form method="post" action="{{ bbase }}/mcq/monitor/{{ tid }}/session" class="inline">{% include "_guard.html" %}<input type="hidden" name="session" value="{{ s.id }}"><button class="btn sm danger" name="action" value="end" data-confirm="End the test for {{ s.name }} now? Their saved answers are marked.">End test</button></form>
-      {% endif %}</td>
+      {% endif %}</div></td>
     </tr>
     {% else %}
     <tr><td colspan="8" class="muted">Nobody from this batch has started {{ tid }} yet.</td></tr>

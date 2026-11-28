@@ -14,6 +14,21 @@ def _pct(done, total):
     return round(100 * done / total) if total else 0
 
 
+def _today_of(batch, plan_project, today):
+    """Today for one batch: the planned session, whether it is a class day, and the next class day."""
+    from .. import classdays, planner
+    try:
+        session = planner.get(batch["id"], today)
+    except Exception:  # noqa: BLE001  (the page shows even if a plan cannot be read)
+        session = {"entries": []}
+    cfg = classdays.get(batch)
+    is_set = classdays.is_set(cfg)
+    nxt = classdays.next_class_days(cfg, today, 2) if is_set else []
+    return {"session": session, "planned": len(session.get("entries") or []),
+            "class_today": (today in nxt) if is_set else None,
+            "next_day": next((d for d in nxt if d != today), None), "plan_project": plan_project}
+
+
 @route("GET", "/")
 def home(ctx):
     """The supervisor's home is the dashboard. A trainer with several batches lands on Overview: every batch of theirs at a glance
@@ -28,25 +43,14 @@ def home(ctx):
     rows = dashboard.batch_rows(perms.visible_scope(ctx.staff), extras=False)
     if not rows:
         return ctx.render("home_trainer.html", title="No batches yet")
-    from .. import classdays, planner
     from .teach import _ist_today
     today = _ist_today()
     cards = dashboard.programme_cards(rows)
     current = {r["batch"]["id"]: r["current"] for r in rows}
     for c in cards:
         for b in c["batches"]:
-            bid = b["batch"]["id"]
-            cur = current.get(bid) or {}
-            try:
-                session = planner.get(bid, today)
-            except Exception:  # noqa: BLE001  (the dashboard shows even if a plan cannot be read)
-                session = {"entries": []}
-            cfg = classdays.get(b["batch"])
-            nxt = classdays.next_class_days(cfg, today, 2) if classdays.is_set(cfg) else []
-            b["today"] = {"session": session, "planned": len(session.get("entries") or []),
-                          "class_today": (today in nxt) if classdays.is_set(cfg) else None,
-                          "next_day": next((d for d in nxt if d != today), None),
-                          "plan_project": (cur.get("project") or {}).get("id") if cur.get("s") else None}
+            cur = current.get(b["batch"]["id"]) or {}
+            b["today"] = _today_of(b["batch"], (cur.get("project") or {}).get("id") if cur.get("s") else None, today)
     return ctx.render("home_trainer.html", title="Overview", cards=cards, today=today)
 
 
@@ -237,3 +241,9 @@ def media(ctx, key):
     return Response(200, obj["Body"].read(), {"content-type": obj.get("ContentType", "application/octet-stream"),
                                               "cache-control": "public, max-age=86400"}, binary=True)
 
+
+
+@route("GET", "/help")
+def help_page(ctx):
+    """Short, current help for signed-in staff (trainers see theirs; the supervisor sees both)."""
+    return ctx.render("help.html", title="Help", is_super=bool(ctx.staff.is_super))

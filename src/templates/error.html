@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon %}
 {% block content %}
-<div class="card" style="max-width:640px;margin:30px auto">
-  <div class="card-body" style="padding:28px">
-    <div class="eyebrow" style="color:var(--danger-strong)">{{ "Not allowed" if code == 403 else ("Not found" if code == 404 else "Something needs attention") }}</div>
-    <h1 style="margin:4px 0 8px">{{ message }}</h1>
-    {% if next_step %}<p>{{ next_step }}</p>{% endif %}
-    <div class="btn-row" style="margin-top:16px"><a class="btn primary" href="{{ back }}">{{ icon("i-left") }}Go back</a><a class="btn" href="/">Home</a></div>
-    <p class="muted small" style="margin-top:18px">Request ID: <code>{{ request_id }}</code></p>
+<div class="card err-card">
+  <div class="card-body">
+    <div class="err-mark" aria-hidden="true">{{ code }}</div>
+    <div class="eyebrow">{{ "Not allowed" if code == 403 else ("Page not found" if code == 404 else "Something needs attention") }}</div>
+    <h1>{{ message }}</h1>
+    {% if next_step %}<p class="err-step">{{ next_step }}</p>{% endif %}
+    <div class="btn-row err-actions"><a class="btn primary" href="{{ back }}">{{ icon("i-left") }}Go back</a><a class="btn" href="/">{{ icon("i-home") }}Home</a><a class="btn ghost" href="/help">{{ icon("i-help") }}Help</a></div>
+    <p class="muted small err-id">If you ask for help, please quote this Request ID: <code>{{ request_id }}</code>{% if support_email() %} · <a href="mailto:{{ support_email() }}?subject={{ ('Problem ' ~ request_id) | urlencode }}">Write to us</a>{% endif %}</p>
   </div>
 </div>
 {% endblock %}
