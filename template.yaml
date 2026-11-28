@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  SkillOps by Robomy - OJT project management for trainers.
+  SkillOps - OJT project management for trainers.
   Serverless: CloudFront + API Gateway + Lambda + DynamoDB + S3 + Cognito.
   Deploy: "sam build --use-container" then "sam deploy --guided". Remove everything: "sam delete".
 
@@ -12,7 +12,7 @@ Parameters:
   PlatformName:
     Type: String
     Default: SkillOps
-    Description: Name shown on every page ("by Robomy" is added beside it).
+    Description: Name shown on every page.
   LiveDataName:
     Type: String
     Default: Live Data Simulator
@@ -29,6 +29,11 @@ Parameters:
     Type: String
     Default: ""
     Description: Where alarm and budget emails go. Leave empty to use SuperadminEmail.
+  SupportEmail:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    Description: Optional. Where people write for help. When set, the pages show a "Send feedback" link and the error page a "Write to us" link.
   MonthlyBudgetUSD:
     Type: Number
     Default: 10
@@ -80,6 +85,7 @@ Globals:
     Environment:
       Variables:
         PLATFORM_NAME: !Ref PlatformName
+        SUPPORT_EMAIL: !Ref SupportEmail
         LIVE_DATA_NAME: !Ref LiveDataName
         TABLE_CORE: !Ref CoreTable
         TABLE_PROGRESS: !Ref ProgressTable
@@ -340,7 +346,7 @@ Resources:
         InviteMessageTemplate:
           EmailSubject: !Sub "Your ${PlatformName} account"
           EmailMessage: !Sub
-            - "Hello. Your supervisor has made you a ${PlatformName} by Robomy account.<br><br>Email: {username}<br>Temporary password: {####}<br><br>Sign in at: ${Where}<br>You will choose your own password the first time you sign in. The temporary password works for 7 days.<br><br>Robomy"
+            - "Hello. Your supervisor has made you a ${PlatformName} account.<br><br>Email: {username}<br>Temporary password: {####}<br><br>Sign in at: ${Where}<br>You will choose your own password the first time you sign in. The temporary password works for 7 days.<br><br>Robomy"
             - Where: !If [HasWebDomain, !Sub "https://${WebDomainName}", "the address your supervisor sends you"]
       VerificationMessageTemplate:
         DefaultEmailOption: CONFIRM_WITH_CODE
@@ -566,7 +572,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: !Sub "${PlatformName} by Robomy"
+        Comment: !Ref PlatformName
         HttpVersion: http2and3
         PriceClass: PriceClass_200          # includes edge locations in India
         Aliases: !If [HasWebDomain, [!Ref WebDomainName], !Ref "AWS::NoValue"]

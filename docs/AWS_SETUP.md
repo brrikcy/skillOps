@@ -189,6 +189,7 @@ Suggested answers to `sam deploy --guided`:
 | SuperadminEmail | your email |
 | SuperadminName | your name |
 | AlarmEmail | leave empty (uses your email) |
+| SupportEmail | optional: where people write for help (shows a "Send feedback" link in the app) |
 | MonthlyBudgetUSD | for example `10` |
 | SessionHours | `12` |
 | WebDomainName, WebCertificateArn | leave empty for now |
@@ -206,6 +207,26 @@ Then:
 1. Open your email and **confirm the SNS subscription** ("AWS Notification - Subscription Confirmation"),
    or alarm emails will not arrive.
 2. You also get "Your SkillOps account" with a temporary password.
+
+### Deploying from a different computer
+
+The computer you develop on does not have to be the one you deploy from. On the other computer you need only
+**Git, the AWS CLI, the SAM CLI and Docker Desktop** (Python is not needed: the build runs inside Docker).
+
+```bat
+git clone https://github.com/brrikcy/skillOps.git
+cd skillOps
+aws configure
+sam build --use-container
+sam deploy --guided
+```
+
+- Push your latest commits first: the other computer gets exactly what is on GitHub.
+- `sam deploy --guided` saves your answers in `samconfig.toml`. That file is **not** in git (it is listed in
+  `.gitignore`) and holds no secrets. Keep it on the computer you deploy from. If you later deploy from another computer, copy
+  the file across or run `--guided` again and give the same answers (`SuperadminEmail` has no default, so a plain
+  `sam deploy` without it will stop and ask).
+- Run `aws sts get-caller-identity` before deploying to check which AWS account you are using.
 
 ### Update after changing code
 

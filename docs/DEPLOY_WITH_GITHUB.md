@@ -25,6 +25,7 @@ Send them [AWS_ADMIN_NOTE.md](AWS_ADMIN_NOTE.md). They create one role from `dep
 | `SUPERADMIN_EMAIL` | your email: AWS sends the first Supervisor password here | yes |
 | `SUPERADMIN_NAME` | your name as shown in the app | no (default "Supervisor") |
 | `ALARM_EMAIL` | where alarm and budget emails go | no (default: your email) |
+| `SUPPORT_EMAIL` | where people write for help; shows a "Send feedback" link in the app | no |
 | `MONTHLY_BUDGET_USD` | cost warning level, for example `10` | no (default 10) |
 | `WEB_DOMAIN_NAME`, `WEB_CERTIFICATE_ARN` | your own address (section 5) | no |
 

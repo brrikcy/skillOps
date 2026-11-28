@@ -18,6 +18,8 @@ import urllib.request
 
 import boto3
 
+from skillops.core import assets
+
 s3 = boto3.client("s3")
 cloudfront = boto3.client("cloudfront")
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -48,9 +50,15 @@ def publish(props):
             if ctype.startswith("text/") or ctype.endswith("javascript"):
                 ctype += "; charset=utf-8"
             with open(path, "rb") as f:
-                # Pages ask for /static/x?v=<hash>, so a new version is a new address: safe to cache long.
-                s3.put_object(Bucket=bucket, Key=key, Body=f.read(), ContentType=ctype,
-                              CacheControl="public, max-age=31536000")
+                body = f.read()
+            if key == "static/style.css":                    # the same lean copy the app serves itself
+                try:
+                    body = assets.optimise_css(body.decode("utf-8")).encode("utf-8")
+                except Exception:  # noqa: BLE001  (never fail a deploy over the stylesheet: ship it as written)
+                    traceback.print_exc()
+            # Pages ask for /static/x?v=<hash>, so a new version is a new address: safe to cache long.
+            s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType=ctype,
+                          CacheControl="public, max-age=31536000, immutable")
             count += 1
     cloudfront.create_invalidation(
         DistributionId=props["DistributionId"],

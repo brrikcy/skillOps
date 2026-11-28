@@ -9,6 +9,7 @@
 #   SUPERADMIN_EMAIL      the first Supervisor; AWS emails this address a temporary password (required)
 #   SUPERADMIN_NAME       that person's name (optional, default "Supervisor")
 #   ALARM_EMAIL           where alarm and budget emails go (optional, default: the Supervisor's email)
+#   SUPPORT_EMAIL         where people write for help; shows a feedback link in the app (optional)
 #   MONTHLY_BUDGET_USD    cost warning level in US dollars (optional, default 10)
 #   WEB_DOMAIN_NAME, WEB_CERTIFICATE_ARN   a custom web address (optional; set both or neither)
 name: Deploy to AWS
@@ -96,6 +97,7 @@ jobs:
           SUPERADMIN_EMAIL: ${{ vars.SUPERADMIN_EMAIL }}
           SUPERADMIN_NAME: ${{ vars.SUPERADMIN_NAME || 'Supervisor' }}
           ALARM_EMAIL: ${{ vars.ALARM_EMAIL }}
+          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
           MONTHLY_BUDGET_USD: ${{ vars.MONTHLY_BUDGET_USD || '10' }}
           WEB_DOMAIN_NAME: ${{ vars.WEB_DOMAIN_NAME }}
           WEB_CERTIFICATE_ARN: ${{ vars.WEB_CERTIFICATE_ARN }}
@@ -113,6 +115,7 @@ jobs:
               "SuperadminEmail=$SUPERADMIN_EMAIL" \
               "SuperadminName=$SUPERADMIN_NAME" \
               "AlarmEmail=$ALARM_EMAIL" \
+              "SupportEmail=$SUPPORT_EMAIL" \
               "MonthlyBudgetUSD=$MONTHLY_BUDGET_USD" \
               "SessionHours=12" \
               "WebDomainName=$WEB_DOMAIN_NAME" \
