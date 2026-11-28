@@ -271,6 +271,8 @@ Run `python admin.py --help` for all commands (activate/deactivate datasets, clo
 |---|---|
 | [TRAINER_GUIDE.md](TRAINER_GUIDE.md) | Trainers: plan, teach, mark done, read the runbook |
 | [ADMIN_GUIDE.md](ADMIN_GUIDE.md) | The supervisor: set-up, runbooks, live data, MCQ, export |
+| [docs/DEPLOY_WITH_GITHUB.md](docs/DEPLOY_WITH_GITHUB.md) | Deploy from GitHub without signing in to AWS yourself (one set-up step by an administrator) |
+| [docs/AWS_ADMIN_NOTE.md](docs/AWS_ADMIN_NOTE.md) | For the AWS administrator: the one role to create so GitHub can deploy |
 | [docs/AWS_SETUP.md](docs/AWS_SETUP.md) | AWS services, costs, install, deploy, custom domain, backup |
 | [docs/REVIEW-2026-11-10.md](docs/REVIEW-2026-11-10.md) | Review notes behind the second build round |
 

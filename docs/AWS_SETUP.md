@@ -168,6 +168,10 @@ macOS / Linux: the same with `python3`.
 
 ## 5. Deploy, update, delete
 
+> **No AWS sign-in on your own laptop?** Deploy from GitHub instead: see [DEPLOY_WITH_GITHUB.md](DEPLOY_WITH_GITHUB.md). An AWS
+> administrator creates one role once ([AWS_ADMIN_NOTE.md](AWS_ADMIN_NOTE.md)); after that a button in GitHub deploys and updates.
+> The commands below are the manual way and give the same result.
+
 ### First deploy
 
 ```bat
